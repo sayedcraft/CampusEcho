@@ -2,11 +2,12 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import Navbar      from "@/components/Navbar";
-import CampusPulse from "@/components/CampusPulse";
-import IssueForm   from "@/components/IssueForm";
-import FilterBar   from "@/components/FilterBar";
-import IssueCard   from "@/components/IssueCard";
-import seedIssues  from "@/data/seedIssues";
+import CampusPulse          from "@/components/CampusPulse";
+import AICampusIntelligence from "@/components/AICampusIntelligence";
+import IssueForm            from "@/components/IssueForm";
+import FilterBar            from "@/components/FilterBar";
+import IssueCard            from "@/components/IssueCard";
+import seedIssues           from "@/data/seedIssues";
 
 // Deep-clone seed data once so resets always get a fresh copy
 const SEED = seedIssues.map((i) => ({ ...i }));
@@ -155,6 +156,9 @@ export default function HomePage() {
 
         {/* ── Campus Pulse (tracks ALL issues, not just filtered) ── */}
         <CampusPulse issues={issues} />
+
+        {/* ── AI Intelligence Center ── */}
+        <AICampusIntelligence issues={issues} />
 
         {/* ── Two-column layout ── */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6 lg:gap-8 items-start">
