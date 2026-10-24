@@ -8,8 +8,7 @@
 
 import { NextResponse } from "next/server";
 
-export const runtime = "nodejs";
-export const maxDuration = 60;
+
 
 // ── Config ──────────────────────────────────────────────────────────────────
 const OLLAMA_BASE    = process.env.OLLAMA_BASE_URL  ?? "http://127.0.0.1:11434";
