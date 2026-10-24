@@ -1,0 +1,190 @@
+"use client";
+
+import { useState } from "react";
+import { MapPin, Building2, ChevronDown, ChevronUp, ThumbsUp } from "lucide-react";
+
+// ── Style maps ─────────────────────────────────────────────────────────────
+
+const URGENCY_PILL = {
+  High:   "bg-red-500/15 text-red-400 border-red-500/30",
+  Medium: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+  Low:    "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+};
+
+const STATUS_ACTIVE = {
+  Open:          "bg-red-500/20 text-red-300 border-red-500/40",
+  "In Progress": "bg-amber-500/20 text-amber-300 border-amber-500/40",
+  Resolved:      "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
+};
+
+const CATEGORY_PILL = {
+  "Facilities":       "bg-blue-500/15 text-blue-400",
+  "IT & Equipment":   "bg-violet-500/15 text-violet-400",
+  "Water & Sanitation":"bg-cyan-500/15 text-cyan-400",
+  "Transport & Bus":  "bg-orange-500/15 text-orange-400",
+  "Admin & Queue":    "bg-pink-500/15 text-pink-400",
+  "Seating & Space":  "bg-teal-500/15 text-teal-400",
+  "Other":            "bg-slate-500/15 text-slate-400",
+};
+
+const STATUS_OPTIONS = ["Open", "In Progress", "Resolved"];
+
+// ── Component ───────────────────────────────────────────────────────────────
+
+/**
+ * @param {{ issue: object, onUpvote: (id: string) => void, onStatusChange: (id: string, status: string) => void }} props
+ */
+export default function IssueCard({ issue, onUpvote, onStatusChange }) {
+  const [expanded, setExpanded]           = useState(false);
+  const [localStatus, setLocalStatus]     = useState(issue.status ?? "Open");
+  const [similarCount, setSimilarCount]   = useState(issue.similarCount ?? 0);
+  const [upvoted, setUpvoted]             = useState(false);
+
+  const handleStatusChange = (newStatus) => {
+    setLocalStatus(newStatus);
+    onStatusChange?.(issue.id, newStatus);
+  };
+
+  const handleUpvote = () => {
+    if (upvoted) return;
+    setUpvoted(true);
+    setSimilarCount((c) => c + 1);
+    onUpvote?.(issue.id);
+  };
+
+  const categoryStyle = CATEGORY_PILL[issue.category] ?? CATEGORY_PILL.Other;
+  const urgencyStyle  = URGENCY_PILL[issue.urgency]   ?? URGENCY_PILL.Low;
+
+  return (
+    <article className="rounded-2xl bg-slate-800/60 border border-slate-700/40 hover:border-slate-600/60 transition-all duration-200 overflow-hidden">
+
+      {/* ── Body ── */}
+      <div className="p-4 sm:p-5">
+
+        {/* Row 1: category + urgency + similar-count badge */}
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${categoryStyle}`}>
+            {issue.category}
+          </span>
+          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${urgencyStyle}`}>
+            ⚡ AI Urgency: {issue.urgency ?? "—"}
+          </span>
+          {similarCount > 0 && (
+            <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-700/80 text-slate-300 border border-slate-600/60">
+              🔁 {similarCount} similar {similarCount === 1 ? "report" : "reports"}
+            </span>
+          )}
+        </div>
+
+        {/* Title */}
+        <h3 className="text-base sm:text-lg font-semibold text-slate-100 mb-2.5 leading-snug">
+          {issue.title}
+        </h3>
+
+        {/* Location + Office */}
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5 mb-3">
+          {issue.location && issue.location !== "Unknown" && (
+            <div className="flex items-center gap-1.5 text-xs text-slate-400">
+              <MapPin className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span>{issue.location}</span>
+            </div>
+          )}
+          {issue.suggestedOffice && (
+            <div className="flex items-center gap-1.5 text-xs text-slate-400">
+              <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+              <span>{issue.suggestedOffice}</span>
+            </div>
+          )}
+        </div>
+
+        {/* English summary */}
+        {issue.summary && (
+          <p className="text-sm text-slate-300 leading-relaxed mb-2">
+            {issue.summary}
+          </p>
+        )}
+
+        {/* Bangla summary — bordered left accent */}
+        {issue.summaryBn && (
+          <p
+            dir="auto"
+            className="text-sm text-slate-400 leading-relaxed mb-3 pl-3 border-l-2 border-indigo-500/40 italic"
+          >
+            {issue.summaryBn}
+          </p>
+        )}
+
+        {/* Expandable original description */}
+        {issue.description && (
+          <>
+            <button
+              onClick={() => setExpanded((e) => !e)}
+              className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-1"
+              aria-expanded={expanded}
+            >
+              {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              {expanded ? "Hide" : "Show"} original student report
+            </button>
+            {expanded && (
+              <p className="text-xs text-slate-500 leading-relaxed rounded-lg bg-slate-900/60 border border-slate-700/50 p-3 mt-1 mb-3">
+                {issue.description}
+              </p>
+            )}
+          </>
+        )}
+
+        {/* Keywords */}
+        {issue.keywords?.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {issue.keywords.map((kw) => (
+              <span
+                key={kw}
+                className="px-2 py-0.5 rounded text-xs bg-slate-900/70 text-slate-600 border border-slate-700/50 font-mono"
+              >
+                #{kw}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Footer: status selector + upvote ── */}
+      <div className="px-4 sm:px-5 pb-4 sm:pb-5 pt-3 border-t border-slate-700/30 flex flex-wrap items-center justify-between gap-3">
+
+        {/* Status buttons */}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs font-medium text-slate-600 mr-0.5">Status:</span>
+          {STATUS_OPTIONS.map((s) => (
+            <button
+              key={s}
+              onClick={() => handleStatusChange(s)}
+              aria-pressed={localStatus === s}
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all duration-150 ${
+                localStatus === s
+                  ? STATUS_ACTIVE[s]
+                  : "bg-transparent border-slate-700 text-slate-600 hover:text-slate-400 hover:border-slate-600"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+
+        {/* Upvote */}
+        <button
+          onClick={handleUpvote}
+          disabled={upvoted}
+          aria-label={upvoted ? "Upvoted" : "I face this too — add my upvote"}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all duration-200 ${
+            upvoted
+              ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/40 cursor-default"
+              : "bg-slate-700/60 text-slate-300 border-slate-600 hover:bg-indigo-500/10 hover:text-indigo-300 hover:border-indigo-500/30 active:scale-95"
+          }`}
+        >
+          <ThumbsUp className="w-3.5 h-3.5" />
+          {upvoted ? "Reported! ✓" : "+1 I face this too"}
+        </button>
+      </div>
+    </article>
+  );
+}
