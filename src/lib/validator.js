@@ -157,3 +157,23 @@ export function validateAIAnalysis(rawOutput, fallbackLocation, fallbackCategory
 
   return { category, urgency, location, summary, summaryBn, suggestedOffice, keywords };
 }
+
+export function hasCompleteAIAnalysis(rawOutput) {
+  try {
+    const parsed = JSON.parse(extractJSON(rawOutput));
+    return CATEGORIES.includes(parsed.category)
+      && VALID_URGENCIES.includes(parsed.urgency)
+      && typeof parsed.summary === "string"
+      && parsed.summary.trim().length >= 20
+      && !/^<[^>]+>$/.test(parsed.summary.trim())
+      && typeof parsed.summaryBn === "string"
+      && parsed.summaryBn.trim().length >= 10
+      && !/^<[^>]+>$/.test(parsed.summaryBn.trim())
+      && typeof parsed.suggestedOffice === "string"
+      && parsed.suggestedOffice.trim().length > 0
+      && Array.isArray(parsed.keywords)
+      && parsed.keywords.some((keyword) => typeof keyword === "string" && keyword.trim().length > 0);
+  } catch {
+    return false;
+  }
+}

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { CATEGORIES, IIUC_LOCATIONS } from "@/data/seedIssues";
 import { findSimilarIssues } from "@/lib/similarity";
+import { buildFallbackAnalysis } from "@/lib/fallbackAnalysis";
 
 // ── Demo presets ──────────────────────────────────────────────────────────────
 const PRESETS = [
@@ -41,19 +42,6 @@ const getSpeechSupport = () => typeof window !== "undefined"
   && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
 const getServerSpeechSupport = () => false;
 
-function buildFallbackAnalysis(description, location, category) {
-  const keywords = description.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 3).slice(0, 5);
-  return {
-    category: category || "Other",
-    urgency: "Medium",
-    location: location?.trim() || "Unknown",
-    summary: description.length > 220 ? description.slice(0, 220).trimEnd() + "…" : description,
-    summaryBn: "AI বিশ্লেষণ পাওয়া যায়নি। স্মার্ট ফলব্যাক ব্যবহার করা হচ্ছে।",
-    suggestedOffice: "Student Affairs Office",
-    keywords,
-  };
-}
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function IssueForm({ existingIssues = [], onSubmit, currentUser, currentRole, onRequestLogin, language = "en" }) {
@@ -67,6 +55,7 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentUser, 
   const [loading,   setLoading] = useState(false);
   const [error,     setError]   = useState(null);
   const [modelUsed, setModelUsed] = useState("");
+  const [analysisNotice, setAnalysisNotice] = useState("");
 
   // Step 2 editable fields
   const [editSummary,  setEditSummary]  = useState("");
@@ -135,7 +124,7 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentUser, 
 
   const resetForm = () => {
     setStep(1); setDescription(""); setLocation(""); setCategory("");
-    setError(null); setSimilarIssues([]); setUpvotedId(null); setModelUsed("");
+    setError(null); setSimilarIssues([]); setUpvotedId(null); setModelUsed(""); setAnalysisNotice("");
     setEditSummary(""); setEditBn(""); setEditCategory(""); setEditLocation("");
     setEditUrgency("Medium"); setEditOffice(""); setEditKeywords([]);
     setIsListening(false); setInterimText("");
@@ -149,7 +138,7 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentUser, 
     setTimeout(() => document.getElementById("report-form")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
   };
 
-  const populateStep2 = (analysis, provider) => {
+  const populateStep2 = (analysis, provider, warning = "") => {
     setEditSummary(analysis.summary ?? "");
     setEditBn(analysis.summaryBn ?? "");
     setEditCategory(analysis.category ?? "Other");
@@ -158,6 +147,7 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentUser, 
     setEditOffice(analysis.suggestedOffice ?? "");
     setEditKeywords(analysis.keywords ?? []);
     setModelUsed(provider ?? "");
+    setAnalysisNotice(warning);
     const candidate = { description, summary: analysis.summary, keywords: analysis.keywords, category: analysis.category, location: analysis.location };
     setSimilarIssues(findSimilarIssues(candidate, existingIssues));
     setStep(2);
@@ -174,7 +164,7 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentUser, 
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
-      populateStep2(data.analysis, data.meta?.provider);
+      populateStep2(data.analysis, data.meta?.provider, data.meta?.warning);
     } catch (err) {
       setError(err.message || "AI analysis failed.");
     } finally {
@@ -182,7 +172,10 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentUser, 
     }
   };
 
-  const handleFallback = () => { setError(null); populateStep2(buildFallbackAnalysis(description, location, category), "smart-fallback"); };
+  const handleFallback = () => {
+    setError(null);
+    populateStep2(buildFallbackAnalysis(description, location, category), "smart-fallback", "manual-fallback");
+  };
 
   const handleSubmit = () => {
     const issue = {
@@ -402,10 +395,16 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentUser, 
             {/* Analyze CTA */}
             <button onClick={handleAnalyze} disabled={!canAnalyze}
               className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold text-sm shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:shadow-none disabled:translate-y-0">
-              {loading ? (<><Loader2 className="w-4 h-4 animate-spin" /> Analyzing with open-weight AI model…</>) :
+              {loading ? (<><Loader2 className="w-4 h-4 animate-spin" /> {language === "bn" ? "AI বিশ্লেষণ চলছে, প্রায় এক মিনিট লাগতে পারে…" : "Analyzing with AI — this may take about a minute…"} </>) :
                 (<><Zap className="w-4 h-4" /> Analyze Issue with AI <ChevronRight className="w-4 h-4" /></>)}
             </button>
-            {!description.trim() && <p className="text-xs text-slate-600 text-center -mt-2">Enter a description or click a Quick Demo Preset to get started.</p>}
+            {description.trim().length < 20 && (
+              <p className="text-center text-xs text-slate-600 -mt-2">
+                {description.trim()
+                  ? `Add ${20 - description.trim().length} more characters to analyze this report.`
+                  : "Enter a description or click a Quick Demo Preset to get started."}
+              </p>
+            )}
           </div>
         )}
 
@@ -420,6 +419,15 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentUser, 
                 </span>
               )}
             </div>
+            {analysisNotice && (
+              <p role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
+                {language === "bn"
+                  ? "AI থেকে সম্পূর্ণ বিশ্লেষণ পাওয়া যায়নি। মূল প্রতিবেদনের ভিত্তিতে একটি স্থানীয় খসড়া তৈরি হয়েছে—জমা দেওয়ার আগে পর্যালোচনা করুন।"
+                  : analysisNotice === "manual-fallback"
+                    ? "Smart fallback used. Review the report carefully before submitting."
+                    : "A complete AI analysis was unavailable. A local draft was prepared from your report; please review it before submitting."}
+              </p>
+            )}
 
             <div className="rounded-xl bg-slate-900/50 border border-slate-700/50 p-4 sm:p-5 space-y-4">
               <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-2">

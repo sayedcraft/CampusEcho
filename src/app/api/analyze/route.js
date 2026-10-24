@@ -16,7 +16,8 @@
  */
 
 import { NextResponse } from "next/server";
-import { validateAIAnalysis } from "@/lib/validator";
+import { hasCompleteAIAnalysis, validateAIAnalysis } from "@/lib/validator";
+import { buildFallbackAnalysis } from "@/lib/fallbackAnalysis";
 import { findSimilarIssues } from "@/lib/similarity";
 import seedIssues, { CATEGORIES, IIUC_LOCATIONS } from "@/data/seedIssues";
 
@@ -29,6 +30,7 @@ const OLLAMA_MODEL     = process.env.OLLAMA_MODEL     ?? "llama3.2:latest";
 const GEMINI_API_KEY   = process.env.GEMINI_API_KEY   ?? "";
 const GEMINI_MODEL     = "gemini-3.8-flash";
 const OLLAMA_TIMEOUT_MS = 45_000; // qwen2.5:3b cold-start on CPU ~35-40 s
+const GEMINI_TIMEOUT_MS = 15_000;
 
 // ---------------------------------------------------------------------------
 // Prompt builder
@@ -143,6 +145,8 @@ async function callOllama(system, user) {
 async function callGemini(system, user) {
   if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY is not set");
 
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
   // Embed system prompt as first user turn — avoids empty-output bug with
@@ -154,39 +158,47 @@ async function callGemini(system, user) {
     generationConfig: { temperature: 0.2, maxOutputTokens: 400 },
   });
 
-  // One automatic retry on transient 503 (demand spike)
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: payload,
-    });
+  try {
+    // One automatic retry on transient 503 (demand spike)
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: payload,
+      });
 
-    if (res.status === 503 && attempt === 1) {
-      // Wait 2 s then retry once
-      await new Promise((r) => setTimeout(r, 2000));
-      continue;
+      if (res.status === 503 && attempt === 1) {
+        await new Promise((r) => setTimeout(r, 2000));
+        continue;
+      }
+
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(`Gemini HTTP ${res.status}: ${err}`);
+      }
+
+      const data = await res.json();
+
+      // Guard against safety blocks or empty candidates
+      const candidate = data?.candidates?.[0];
+      if (!candidate) throw new Error("Gemini returned no candidates");
+      if (candidate.finishReason === "SAFETY") throw new Error("Gemini blocked by safety filter");
+
+      const text = candidate?.content?.parts?.[0]?.text;
+      if (!text) throw new Error("Gemini returned empty content");
+      return text;
     }
 
-    if (!res.ok) {
-      const err = await res.text();
-      throw new Error(`Gemini HTTP ${res.status}: ${err}`);
+    throw new Error("Gemini failed after retry");
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`Gemini timed out after ${GEMINI_TIMEOUT_MS / 1000} seconds`);
     }
-
-    const data = await res.json();
-
-    // Guard against safety blocks or empty candidates
-    const candidate = data?.candidates?.[0];
-    if (!candidate) throw new Error("Gemini returned no candidates");
-    if (candidate.finishReason === "SAFETY") throw new Error("Gemini blocked by safety filter");
-
-    const text = candidate?.content?.parts?.[0]?.text;
-    if (!text) throw new Error("Gemini returned empty content");
-    return text;
+    throw error;
+  } finally {
+    clearTimeout(timer);
   }
-
-  // Should never reach here
-  throw new Error("Gemini failed after retry");
 }
 
 // ---------------------------------------------------------------------------
@@ -232,34 +244,40 @@ export async function POST(request) {
   // ── 3. Call AI (Ollama → Gemini fallback) ────────────────────────────────
   let rawAIOutput = "";
   let provider    = "unknown";
+  let attemptedProvider = "";
+  let fallbackReason = "";
 
   try {
     rawAIOutput = await callOllama(system, user);
     provider    = `ollama:${OLLAMA_MODEL}`;
   } catch (ollamaError) {
+    attemptedProvider = `ollama:${OLLAMA_MODEL}`;
     console.warn(`[analyze] Ollama unavailable (${ollamaError.message}), falling back to Gemini`);
     try {
       rawAIOutput = await callGemini(system, user);
       provider    = `gemini:${GEMINI_MODEL}`;
     } catch (geminiError) {
       console.error("[analyze] Gemini also failed:", geminiError.message);
-      return NextResponse.json(
-        {
-          error:
-            "Both AI providers are currently unavailable. Please check that Ollama is running " +
-            "(`ollama serve`) or that your GEMINI_API_KEY is valid.",
-          details: {
-            ollama: ollamaError.message,
-            gemini: geminiError.message,
-          },
-        },
-        { status: 503 }
-      );
+      attemptedProvider += ` → gemini:${GEMINI_MODEL}`;
+      provider = "smart-fallback";
+      fallbackReason = "providers-unavailable";
     }
   }
 
   // ── 4. Validate & sanitize AI output ────────────────────────────────────
-  const analysis = validateAIAnalysis(rawAIOutput, userLocation, userCategory);
+  const completeAnalysis = hasCompleteAIAnalysis(rawAIOutput);
+  const analysis = completeAnalysis
+    ? validateAIAnalysis(rawAIOutput, userLocation, userCategory)
+    : buildFallbackAnalysis(description, userLocation, userCategory);
+  const analysisProvider = completeAnalysis ? provider : "smart-fallback";
+
+  if (!completeAnalysis) {
+    if (!fallbackReason) {
+      attemptedProvider = provider;
+      fallbackReason = "incomplete-analysis";
+      console.warn(`[analyze] ${provider} returned incomplete analysis; using deterministic fallback`);
+    }
+  }
 
   // ── 5. Similarity check against seed + (future) stored issues ───────────
   const candidateIssue = {
@@ -278,7 +296,8 @@ export async function POST(request) {
     analysis,
     similarIssues,
     meta: {
-      provider,
+      provider: analysisProvider,
+      ...(!completeAnalysis ? { attemptedProvider, warning: fallbackReason } : {}),
       similarCount: similarIssues.length,
       timestamp:    new Date().toISOString(),
     },
