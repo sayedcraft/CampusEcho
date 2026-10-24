@@ -4,21 +4,18 @@ import { useState } from "react";
 import {
   Send, Loader2, AlertTriangle, ChevronRight,
   RotateCcw, CheckCircle2, Edit3, Zap, MapPin,
-  Tag, FileText, Globe, Building2, Hash, ThumbsUp,
+  Tag, FileText, Globe, Building2, Hash, ThumbsUp, ShieldCheck,
 } from "lucide-react";
 import { CATEGORIES, IIUC_LOCATIONS } from "@/data/seedIssues";
 import { findSimilarIssues } from "@/lib/similarity";
 
-// ── Demo presets ─────────────────────────────────────────────────────────────
-// Preset 1 (Broken Lab Projector) deliberately matches seed issue-1
-// (CSE Lab 302 / IT & Equipment) so judges see Similar Issue Detection live.
-
+// ── Demo presets ──────────────────────────────────────────────────────────────
 const PRESETS = [
   {
     emoji: "📽️",
     label: "Broken Lab Projector",
     description:
-      "CSE Building Lab 302 te projector last 2 week dhore kaaj korche na. Class er time instructor slides dekhate parchen na properly. Projector starts but flickers badly and goes black after 5 minutes. Multiple faculty members reported this to IT cell but no repair has happened yet. Students cannot follow practical demonstrations.",
+      "CSE Building Lab 302 te projector last 2 week dhore kaaj korche na. Class er time instructor slides dekhate parchen na properly. Projector starts but flickers badly and goes black after 5 minutes. Multiple faculty reported this to IT cell but no repair yet.",
     location: "CSE Building - Lab 302",
     category: "IT & Equipment",
   },
@@ -26,7 +23,7 @@ const PRESETS = [
     emoji: "💧",
     label: "No Drinking Water",
     description:
-      "Central Library 2nd floor e water purifier 3 din dhore completely empty and not working. Exam season e students paani pete niche go down korte hoy ba cafeteria theke buy korte hoy which costs money. The water filter machine is installed but the tank is not being refilled by anyone from facilities.",
+      "Central Library 2nd floor e water purifier 3 din dhore completely empty. Exam season e students paani pete niche go down korte hoy ba cafeteria theke buy korte hoy. Filter machine is installed but tank is not being refilled.",
     location: "Central Library - 2nd Floor",
     category: "Water & Sanitation",
   },
@@ -34,23 +31,18 @@ const PRESETS = [
     emoji: "🚌",
     label: "Chawkbazar Bus Crowding",
     description:
-      "Chawkbazar to IIUC Kumira morning 8:00 AM shuttle te only one bus comes but 50+ students are waiting. Students have to push and crush to get on, many get left behind and miss their first class. This happens every single morning. Need at least one extra bus for the Chawkbazar route during peak morning hours.",
+      "Chawkbazar to IIUC Kumira morning 8:00 AM shuttle te only one bus comes but 50+ students waiting. Students have to push to get on, many get left behind and miss first class. Need at least one extra bus during peak morning hours.",
     location: "Kumira Bus Point (Chawkbazar Route)",
     category: "Transport & Bus",
   },
 ];
 
-// ── Constants ────────────────────────────────────────────────────────────────
-
 const URGENCY_OPTIONS = ["Low", "Medium", "High"];
-
 const URGENCY_BTN_ACTIVE = {
   Low:    "bg-emerald-500/20 text-emerald-300 border-emerald-500/40",
   Medium: "bg-amber-500/20 text-amber-300 border-amber-500/40",
   High:   "bg-red-500/20 text-red-300 border-red-500/40",
 };
-
-// ── Client-side smart fallback ────────────────────────────────────────────────
 
 function buildFallbackAnalysis(description, location, category) {
   const keywords = description
@@ -59,41 +51,26 @@ function buildFallbackAnalysis(description, location, category) {
     .split(/\s+/)
     .filter((w) => w.length > 3)
     .slice(0, 5);
-
   return {
     category: category || "Other",
     urgency: "Medium",
     location: location?.trim() || "Unknown",
-    summary:
-      description.length > 220
-        ? description.slice(0, 220).trimEnd() + "…"
-        : description,
-    summaryBn:
-      "AI বিশ্লেষণ পাওয়া যায়নি। স্মার্ট ফলব্যাক ব্যবহার করা হচ্ছে — মূল বিবরণ দেখুন।",
+    summary: description.length > 220 ? description.slice(0, 220).trimEnd() + "…" : description,
+    summaryBn: "AI বিশ্লেষণ পাওয়া যায়নি। স্মার্ট ফলব্যাক ব্যবহার করা হচ্ছে।",
     suggestedOffice: "Student Affairs Office",
     keywords,
   };
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
-
-/**
- * @param {{ existingIssues: object[], onSubmit: (issue: object) => void }} props
- */
-export default function IssueForm({ existingIssues = [], onSubmit }) {
-
-  // Step 1 — raw user inputs
+export default function IssueForm({ existingIssues = [], onSubmit, currentRole = "student" }) {
   const [description, setDescription] = useState("");
   const [location,    setLocation]    = useState("");
   const [category,    setCategory]    = useState("");
+  const [step,        setStep]        = useState(1);
+  const [loading,     setLoading]     = useState(false);
+  const [error,       setError]       = useState(null);
+  const [modelUsed,   setModelUsed]   = useState("");
 
-  // UI state machine
-  const [step,    setStep]    = useState(1);   // 1 = input, 2 = review
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState(null);
-
-  // Step 2 — editable AI-extracted fields
-  const [modelUsed,    setModelUsed]    = useState("");
   const [editSummary,  setEditSummary]  = useState("");
   const [editBn,       setEditBn]       = useState("");
   const [editCategory, setEditCategory] = useState("");
@@ -102,19 +79,14 @@ export default function IssueForm({ existingIssues = [], onSubmit }) {
   const [editOffice,   setEditOffice]   = useState("");
   const [editKeywords, setEditKeywords] = useState([]);
 
-  // Similar issues
   const [similarIssues, setSimilarIssues] = useState([]);
   const [upvotedId,     setUpvotedId]     = useState(null);
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
-
   const resetForm = () => {
-    setStep(1);
-    setDescription(""); setLocation(""); setCategory("");
-    setError(null); setSimilarIssues([]); setUpvotedId(null);
-    setModelUsed(""); setEditSummary(""); setEditBn("");
-    setEditCategory(""); setEditLocation(""); setEditUrgency("Medium");
-    setEditOffice(""); setEditKeywords([]);
+    setStep(1); setDescription(""); setLocation(""); setCategory("");
+    setError(null); setSimilarIssues([]); setUpvotedId(null); setModelUsed("");
+    setEditSummary(""); setEditBn(""); setEditCategory(""); setEditLocation("");
+    setEditUrgency("Medium"); setEditOffice(""); setEditKeywords([]);
   };
 
   const applyPreset = (preset) => {
@@ -128,49 +100,33 @@ export default function IssueForm({ existingIssues = [], onSubmit }) {
   };
 
   const populateStep2 = (analysis, provider) => {
-    setEditSummary(analysis.summary   ?? "");
-    setEditBn(analysis.summaryBn      ?? "");
+    setEditSummary(analysis.summary ?? "");
+    setEditBn(analysis.summaryBn ?? "");
     setEditCategory(analysis.category ?? "Other");
     setEditLocation(analysis.location ?? "Unknown");
-    setEditUrgency(analysis.urgency   ?? "Medium");
+    setEditUrgency(analysis.urgency ?? "Medium");
     setEditOffice(analysis.suggestedOffice ?? "");
     setEditKeywords(analysis.keywords ?? []);
     setModelUsed(provider ?? "");
-
-    // Run client-side similarity check
-    const candidate = {
-      description,
-      summary:  analysis.summary,
-      keywords: analysis.keywords,
-      category: analysis.category,
-      location: analysis.location,
-    };
+    const candidate = { description, summary: analysis.summary, keywords: analysis.keywords, category: analysis.category, location: analysis.location };
     setSimilarIssues(findSimilarIssues(candidate, existingIssues));
     setStep(2);
   };
 
-  // ── AI analysis call ─────────────────────────────────────────────────────
-
   const handleAnalyze = async () => {
     if (!description.trim() || description.trim().length < 20) return;
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title:       description.slice(0, 80),
-          description: description.trim(),
-          category,
-          location,
-        }),
+        body: JSON.stringify({ title: description.slice(0, 80), description: description.trim(), category, location }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
       populateStep2(data.analysis, data.meta?.provider);
     } catch (err) {
-      setError(err.message || "AI analysis failed. Please retry or use Smart Fallback.");
+      setError(err.message || "AI analysis failed.");
     } finally {
       setLoading(false);
     }
@@ -181,23 +137,23 @@ export default function IssueForm({ existingIssues = [], onSubmit }) {
     populateStep2(buildFallbackAnalysis(description, location, category), "smart-fallback");
   };
 
-  // ── Submit ───────────────────────────────────────────────────────────────
-
   const handleSubmit = () => {
     const issue = {
-      id:             `issue-${Date.now()}`,
-      title:          description.replace(/\s+/g, " ").slice(0, 100),
+      id: `issue-${Date.now()}`,
+      title: description.replace(/\s+/g, " ").slice(0, 100),
       description,
-      summary:        editSummary,
-      summaryBn:      editBn,
-      category:       editCategory,
-      location:       editLocation,
-      suggestedOffice:editOffice,
-      urgency:        editUrgency,
-      keywords:       editKeywords,
-      status:         "Open",
-      createdAt:      new Date().toISOString(),
-      similarCount:   similarIssues.length,
+      summary: editSummary,
+      summaryBn: editBn,
+      category: editCategory,
+      location: editLocation,
+      suggestedOffice: editOffice,
+      urgency: editUrgency,
+      keywords: editKeywords,
+      status: "Open",
+      authorityNote: null,
+      updatedBy: null,
+      createdAt: new Date().toISOString(),
+      similarCount: similarIssues.length,
     };
     onSubmit?.(issue);
     resetForm();
@@ -209,44 +165,55 @@ export default function IssueForm({ existingIssues = [], onSubmit }) {
     setTimeout(resetForm, 1800);
   };
 
-  // ── Model badge colour ───────────────────────────────────────────────────
   const modelBadge =
-    modelUsed.startsWith("ollama")  ? "bg-violet-500/20 text-violet-300 border-violet-500/30" :
-    modelUsed.startsWith("gemini")  ? "bg-blue-500/20 text-blue-300 border-blue-500/30"       :
-    modelUsed === "smart-fallback"  ? "bg-slate-700 text-slate-400 border-slate-600"           :
-                                      "bg-slate-700 text-slate-400 border-slate-600";
+    modelUsed.startsWith("ollama") ? "bg-violet-500/20 text-violet-300 border-violet-500/30" :
+    modelUsed.startsWith("gemini") ? "bg-blue-500/20 text-blue-300 border-blue-500/30" :
+    "bg-slate-700 text-slate-400 border-slate-600";
 
   const canAnalyze = !loading && description.trim().length >= 20;
 
-  // ── Render ───────────────────────────────────────────────────────────────
+  // ── Authority mode — show info panel instead of form ──────────────────────
+  if (currentRole === "authority") {
+    return (
+      <section
+        id="report-form"
+        className="rounded-2xl bg-amber-500/5 border border-amber-500/20 overflow-hidden"
+      >
+        <div className="px-5 sm:px-6 py-6 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center mx-auto mb-4">
+            <ShieldCheck className="w-6 h-6 text-amber-400" />
+          </div>
+          <h2 className="text-base font-bold text-amber-300 mb-2">Authority Dashboard Active</h2>
+          <p className="text-sm text-slate-400 leading-relaxed">
+            You are logged in as <span className="text-amber-300 font-semibold">IIUC Faculty / Staff</span>.
+            Use the controls on each issue card to update statuses, post official remarks, or remove invalid reports.
+          </p>
+          <p className="text-xs text-slate-600 mt-3">
+            Issue submission is disabled in Authority Mode. Switch to Student Mode to report a new issue.
+          </p>
+        </div>
+      </section>
+    );
+  }
 
+  // ── Student form ──────────────────────────────────────────────────────────
   return (
-    <section
-      id="report-form"
-      aria-label="Report a Campus Issue"
-      className="rounded-2xl bg-slate-800/40 border border-slate-700/50 overflow-hidden"
-    >
-      {/* ── Form Header + Demo Presets ── */}
+    <section id="report-form" aria-label="Report a Campus Issue" className="rounded-2xl bg-slate-800/40 border border-slate-700/50 overflow-hidden">
+
+      {/* Header + presets */}
       <div className="px-5 sm:px-6 pt-5 pb-5 border-b border-slate-700/50 bg-gradient-to-r from-indigo-600/8 to-violet-600/8">
         <h2 className="text-lg font-bold text-slate-100">Report a Campus Issue</h2>
         <p className="text-sm text-slate-400 mt-0.5">
           Write in <span className="text-white">English</span>,{" "}
           <span className="text-white">বাংলা</span>, or{" "}
-          <span className="text-white">Banglish</span> — our AI understands all three.
+          <span className="text-white">Banglish</span> — AI understands all three.
         </p>
-
-        {/* Demo preset chips */}
         <div className="mt-4">
-          <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2.5">
-            ⚡ Quick Demo Presets — click to auto-fill:
-          </p>
+          <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2.5">⚡ Quick Demo Presets:</p>
           <div className="flex flex-wrap gap-2">
             {PRESETS.map((p) => (
-              <button
-                key={p.label}
-                onClick={() => applyPreset(p)}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-700/80 hover:bg-slate-600/80 border border-slate-600 hover:border-indigo-500/40 text-sm text-slate-200 font-medium transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0 shadow-sm"
-              >
+              <button key={p.label} onClick={() => applyPreset(p)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-700/80 hover:bg-slate-600/80 border border-slate-600 hover:border-indigo-500/40 text-sm text-slate-200 font-medium transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0">
                 <span className="text-base leading-none">{p.emoji}</span>
                 <span>{p.label}</span>
               </button>
@@ -255,79 +222,47 @@ export default function IssueForm({ existingIssues = [], onSubmit }) {
         </div>
       </div>
 
-      {/* ── Form Body ── */}
       <div className="p-5 sm:p-6">
 
-        {/* ════════════════════════════════════════════════════
-            STEP 1 — INPUT
-        ════════════════════════════════════════════════════ */}
+        {/* ── Step 1 ── */}
         {step === 1 && (
           <div className="space-y-4">
-
-            {/* Description textarea */}
             <div>
               <label htmlFor="issue-description" className="block text-sm font-medium text-slate-300 mb-1.5">
-                Describe the issue{" "}
-                <span className="text-red-400" aria-hidden>*</span>
+                Describe the issue <span className="text-red-400" aria-hidden>*</span>
               </label>
-              <textarea
-                id="issue-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe the problem in your own words… Lab equipment broken? Long admin queue? Bus schedule problem?"
-                rows={5}
-                dir="auto"
-                className="w-full rounded-xl bg-slate-900/60 border border-slate-700 text-slate-200 placeholder:text-slate-600 text-sm p-3.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 resize-none transition-all leading-relaxed"
-              />
+              <textarea id="issue-description" value={description} onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describe the problem… Lab equipment broken? Long admin queue? Bus schedule issue?"
+                rows={5} dir="auto"
+                className="w-full rounded-xl bg-slate-900/60 border border-slate-700 text-slate-200 placeholder:text-slate-600 text-sm p-3.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 resize-none transition-all leading-relaxed" />
               <div className="flex justify-between mt-1">
-                <p className="text-xs text-slate-600">Minimum 20 characters</p>
-                <p className={`text-xs tabular-nums ${description.length < 20 ? "text-slate-600" : "text-slate-500"}`}>
-                  {description.length} chars
-                </p>
+                <p className="text-xs text-slate-600">Min 20 characters</p>
+                <p className={`text-xs tabular-nums ${description.length < 20 ? "text-slate-600" : "text-slate-500"}`}>{description.length} chars</p>
               </div>
             </div>
 
-            {/* Location + Category */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label htmlFor="issue-location" className="block text-sm font-medium text-slate-300 mb-1.5">
-                  Campus Location{" "}
-                  <span className="text-slate-500 font-normal text-xs">(optional)</span>
+                  Campus Location <span className="text-slate-500 font-normal text-xs">(optional)</span>
                 </label>
-                <input
-                  id="issue-location"
-                  list="iiuc-locations"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
+                <input id="issue-location" list="iiuc-locations" value={location} onChange={(e) => setLocation(e.target.value)}
                   placeholder="e.g. CSE Building - Lab 302"
-                  className="w-full rounded-xl bg-slate-900/60 border border-slate-700 text-slate-200 placeholder:text-slate-600 text-sm px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all"
-                />
-                <datalist id="iiuc-locations">
-                  {IIUC_LOCATIONS.map((loc) => (
-                    <option key={loc} value={loc} />
-                  ))}
-                </datalist>
+                  className="w-full rounded-xl bg-slate-900/60 border border-slate-700 text-slate-200 placeholder:text-slate-600 text-sm px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all" />
+                <datalist id="iiuc-locations">{IIUC_LOCATIONS.map((l) => <option key={l} value={l} />)}</datalist>
               </div>
               <div>
                 <label htmlFor="issue-category" className="block text-sm font-medium text-slate-300 mb-1.5">
-                  Category{" "}
-                  <span className="text-slate-500 font-normal text-xs">(AI will auto-detect)</span>
+                  Category <span className="text-slate-500 font-normal text-xs">(AI will auto-detect)</span>
                 </label>
-                <select
-                  id="issue-category"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full rounded-xl bg-slate-900/60 border border-slate-700 text-slate-200 text-sm px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all appearance-none cursor-pointer"
-                >
+                <select id="issue-category" value={category} onChange={(e) => setCategory(e.target.value)}
+                  className="w-full rounded-xl bg-slate-900/60 border border-slate-700 text-slate-200 text-sm px-3.5 py-2.5 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all appearance-none cursor-pointer">
                   <option value="">AI will auto-detect…</option>
-                  {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
+                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
             </div>
 
-            {/* Error state */}
             {error && (
               <div className="rounded-xl bg-red-500/8 border border-red-500/30 p-4">
                 <div className="flex items-start gap-3">
@@ -336,20 +271,13 @@ export default function IssueForm({ existingIssues = [], onSubmit }) {
                     <p className="text-sm font-semibold text-red-300 mb-1">AI Analysis Failed</p>
                     <p className="text-xs text-red-400/80 mb-3 break-words">{error}</p>
                     <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={handleAnalyze}
-                        disabled={loading}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-300 text-xs font-semibold transition-all disabled:opacity-50"
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                        Retry AI Analysis
+                      <button onClick={handleAnalyze} disabled={loading}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-300 text-xs font-semibold transition-all disabled:opacity-50">
+                        <RotateCcw className="w-3.5 h-3.5" /> Retry AI Analysis
                       </button>
-                      <button
-                        onClick={handleFallback}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-300 text-xs font-semibold transition-all"
-                      >
-                        <Zap className="w-3.5 h-3.5 text-amber-400" />
-                        Continue with Smart Fallback
+                      <button onClick={handleFallback}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 border border-slate-600 text-slate-300 text-xs font-semibold transition-all">
+                        <Zap className="w-3.5 h-3.5 text-amber-400" /> Continue with Smart Fallback
                       </button>
                     </div>
                   </div>
@@ -357,58 +285,27 @@ export default function IssueForm({ existingIssues = [], onSubmit }) {
               </div>
             )}
 
-            {/* Analyze CTA */}
-            <button
-              id="analyze-btn"
-              onClick={handleAnalyze}
-              disabled={!canAnalyze}
-              className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold text-sm shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:shadow-none disabled:translate-y-0"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Analyzing report with open-weight AI model…
-                </>
-              ) : (
-                <>
-                  <Zap className="w-4 h-4" />
-                  Analyze Issue with AI
-                  <ChevronRight className="w-4 h-4" />
-                </>
-              )}
+            <button onClick={handleAnalyze} disabled={!canAnalyze}
+              className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold text-sm shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0 disabled:shadow-none disabled:translate-y-0">
+              {loading ? (<><Loader2 className="w-4 h-4 animate-spin" /> Analyzing with open-weight AI model…</>) :
+                (<><Zap className="w-4 h-4" /> Analyze Issue with AI <ChevronRight className="w-4 h-4" /></>)}
             </button>
-
-            {!description.trim() && (
-              <p className="text-xs text-slate-600 text-center -mt-2">
-                Enter a description above, or click a Quick Demo Preset to get started.
-              </p>
-            )}
+            {!description.trim() && <p className="text-xs text-slate-600 text-center -mt-2">Enter a description or click a Quick Demo Preset to get started.</p>}
           </div>
         )}
 
-        {/* ════════════════════════════════════════════════════
-            STEP 2 — REVIEW & SUBMIT
-        ════════════════════════════════════════════════════ */}
+        {/* ── Step 2 ── */}
         {step === 2 && (
           <div className="space-y-5">
-
-            {/* Back + model badge */}
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <button
-                onClick={() => setStep(1)}
-                className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
-              >
-                ← Edit original report
-              </button>
+              <button onClick={() => setStep(1)} className="text-xs text-slate-500 hover:text-slate-300 transition-colors">← Edit original report</button>
               {modelUsed && (
                 <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${modelBadge}`}>
-                  <Zap className="w-3 h-3" />
-                  Analyzed by: {modelUsed}
+                  <Zap className="w-3 h-3" /> Analyzed by: {modelUsed}
                 </span>
               )}
             </div>
 
-            {/* Editable AI output panel */}
             <div className="rounded-xl bg-slate-900/50 border border-slate-700/50 p-4 sm:p-5 space-y-4">
               <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
                 <Edit3 className="w-4 h-4 text-indigo-400" />
@@ -416,65 +313,32 @@ export default function IssueForm({ existingIssues = [], onSubmit }) {
                 <span className="text-xs font-normal text-slate-500 ml-1">— all fields editable</span>
               </h3>
 
-              {/* English Summary */}
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-                  <Globe className="w-3.5 h-3.5" /> English Summary
-                </label>
-                <textarea
-                  value={editSummary}
-                  onChange={(e) => setEditSummary(e.target.value)}
-                  rows={3}
-                  className="w-full rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-sm p-3 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 resize-none transition-all leading-relaxed"
-                />
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide"><Globe className="w-3.5 h-3.5" /> English Summary</label>
+                <textarea value={editSummary} onChange={(e) => setEditSummary(e.target.value)} rows={3}
+                  className="w-full rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-sm p-3 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 resize-none transition-all leading-relaxed" />
               </div>
 
-              {/* Bangla Summary */}
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-                  <FileText className="w-3.5 h-3.5" /> বাংলা সারসংক্ষেপ
-                </label>
-                <textarea
-                  value={editBn}
-                  onChange={(e) => setEditBn(e.target.value)}
-                  rows={3}
-                  dir="auto"
-                  className="w-full rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-sm p-3 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 resize-none transition-all leading-relaxed"
-                />
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide"><FileText className="w-3.5 h-3.5" /> বাংলা সারসংক্ষেপ</label>
+                <textarea value={editBn} onChange={(e) => setEditBn(e.target.value)} rows={3} dir="auto"
+                  className="w-full rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-sm p-3 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 resize-none transition-all leading-relaxed" />
               </div>
 
-              {/* Category + Urgency */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-                    <Tag className="w-3.5 h-3.5" /> Category
-                  </label>
-                  <select
-                    value={editCategory}
-                    onChange={(e) => setEditCategory(e.target.value)}
-                    className="w-full rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-sm px-3 py-2.5 focus:outline-none focus:border-indigo-500 transition-all appearance-none"
-                  >
-                    {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide"><Tag className="w-3.5 h-3.5" /> Category</label>
+                  <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)}
+                    className="w-full rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-sm px-3 py-2.5 focus:outline-none focus:border-indigo-500 transition-all appearance-none">
+                    {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-                    <Zap className="w-3.5 h-3.5 text-amber-400" /> AI Suggested Urgency
-                  </label>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide"><Zap className="w-3.5 h-3.5 text-amber-400" /> AI Suggested Urgency</label>
                   <div className="flex gap-2 h-[38px]">
                     {URGENCY_OPTIONS.map((u) => (
-                      <button
-                        key={u}
-                        onClick={() => setEditUrgency(u)}
-                        aria-pressed={editUrgency === u}
-                        className={`flex-1 rounded-lg text-xs font-bold border transition-all ${
-                          editUrgency === u
-                            ? URGENCY_BTN_ACTIVE[u]
-                            : "bg-transparent border-slate-700 text-slate-600 hover:text-slate-400 hover:border-slate-600"
-                        }`}
-                      >
+                      <button key={u} onClick={() => setEditUrgency(u)} aria-pressed={editUrgency === u}
+                        className={`flex-1 rounded-lg text-xs font-bold border transition-all ${editUrgency === u ? URGENCY_BTN_ACTIVE[u] : "bg-transparent border-slate-700 text-slate-600 hover:text-slate-400 hover:border-slate-600"}`}>
                         {u}
                       </button>
                     ))}
@@ -482,57 +346,30 @@ export default function IssueForm({ existingIssues = [], onSubmit }) {
                 </div>
               </div>
 
-              {/* Location + Office */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
                     <MapPin className="w-3.5 h-3.5" /> Extracted Location
-                    {editLocation === "Unknown" && (
-                      <span className="ml-1 text-amber-400 normal-case font-normal">⚠ not detected</span>
-                    )}
+                    {editLocation === "Unknown" && <span className="ml-1 text-amber-400 normal-case font-normal">⚠ not detected</span>}
                   </label>
-                  <input
-                    list="iiuc-locations-2"
-                    value={editLocation}
-                    onChange={(e) => setEditLocation(e.target.value)}
-                    className={`w-full rounded-lg border text-sm px-3 py-2.5 focus:outline-none focus:border-indigo-500 transition-all ${
-                      editLocation === "Unknown"
-                        ? "bg-amber-500/8 border-amber-500/30 text-amber-300 placeholder:text-amber-700"
-                        : "bg-slate-800 border-slate-700 text-slate-200"
-                    }`}
-                  />
-                  <datalist id="iiuc-locations-2">
-                    {IIUC_LOCATIONS.map((loc) => (
-                      <option key={loc} value={loc} />
-                    ))}
-                  </datalist>
+                  <input list="iiuc-locations-2" value={editLocation} onChange={(e) => setEditLocation(e.target.value)}
+                    className={`w-full rounded-lg border text-sm px-3 py-2.5 focus:outline-none focus:border-indigo-500 transition-all ${editLocation === "Unknown" ? "bg-amber-500/8 border-amber-500/30 text-amber-300" : "bg-slate-800 border-slate-700 text-slate-200"}`} />
+                  <datalist id="iiuc-locations-2">{IIUC_LOCATIONS.map((l) => <option key={l} value={l} />)}</datalist>
                 </div>
                 <div>
-                  <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-                    <Building2 className="w-3.5 h-3.5" /> Suggested IIUC Office
-                  </label>
-                  <input
-                    value={editOffice}
-                    onChange={(e) => setEditOffice(e.target.value)}
-                    className="w-full rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-sm px-3 py-2.5 focus:outline-none focus:border-indigo-500 transition-all"
-                  />
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide"><Building2 className="w-3.5 h-3.5" /> Suggested IIUC Office</label>
+                  <input value={editOffice} onChange={(e) => setEditOffice(e.target.value)}
+                    className="w-full rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-sm px-3 py-2.5 focus:outline-none focus:border-indigo-500 transition-all" />
                 </div>
               </div>
 
-              {/* Keywords */}
               <div>
-                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-                  <Hash className="w-3.5 h-3.5" /> Keywords
-                  <span className="text-slate-600 normal-case font-normal ml-1">click to remove</span>
-                </label>
+                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide"><Hash className="w-3.5 h-3.5" /> Keywords <span className="text-slate-600 normal-case font-normal ml-1">click to remove</span></label>
                 <div className="flex flex-wrap gap-1.5 min-h-[28px]">
                   {editKeywords.length > 0
                     ? editKeywords.map((kw, i) => (
-                        <button
-                          key={i}
-                          onClick={() => setEditKeywords(editKeywords.filter((_, idx) => idx !== i))}
-                          className="px-2.5 py-1 rounded-lg bg-slate-700 text-slate-300 text-xs font-mono border border-slate-600 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 transition-all"
-                        >
+                        <button key={i} onClick={() => setEditKeywords(editKeywords.filter((_, idx) => idx !== i))}
+                          className="px-2.5 py-1 rounded-lg bg-slate-700 text-slate-300 text-xs font-mono border border-slate-600 hover:bg-red-500/20 hover:text-red-300 hover:border-red-500/30 transition-all">
                           #{kw} ×
                         </button>
                       ))
@@ -542,55 +379,32 @@ export default function IssueForm({ existingIssues = [], onSubmit }) {
               </div>
             </div>
 
-            {/* ── Similar Issue Alert ── */}
+            {/* Similar issues alert */}
             {similarIssues.length > 0 && !upvotedId && (
               <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 overflow-hidden">
                 <div className="px-4 py-3 bg-amber-500/10 border-b border-amber-500/20 flex flex-wrap items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span className="text-sm font-bold text-amber-300">
-                    {similarIssues.length} Similar Issue{similarIssues.length > 1 ? "s" : ""} Already Reported!
-                  </span>
-                  <span className="text-xs text-amber-600">
-                    Upvoting helps the admin prioritize faster.
-                  </span>
+                  <span className="text-sm font-bold text-amber-300">{similarIssues.length} Similar Issue{similarIssues.length > 1 ? "s" : ""} Already Reported!</span>
+                  <span className="text-xs text-amber-600">Upvoting helps admin prioritize faster.</span>
                 </div>
                 <div className="p-4 space-y-3">
                   {similarIssues.slice(0, 3).map((si) => (
-                    <div
-                      key={si.id}
-                      className="rounded-xl bg-slate-800/70 border border-slate-700/50 p-3"
-                    >
+                    <div key={si.id} className="rounded-xl bg-slate-800/70 border border-slate-700/50 p-3">
                       <div className="flex items-start justify-between gap-3 flex-wrap">
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
                             <span className="text-xs font-extrabold text-amber-400">{si.matchScore}% match</span>
-                            <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
-                              si.status === "Resolved"   ? "text-emerald-400 bg-emerald-500/10" :
-                              si.status === "In Progress"? "text-amber-400 bg-amber-500/10"    :
-                                                           "text-red-400 bg-red-500/10"
-                            }`}>
-                              {si.status}
-                            </span>
-                            {si.matchReasons?.map((r) => (
-                              <span key={r} className="text-xs bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded border border-slate-600">
-                                {r}
-                              </span>
-                            ))}
+                            <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${si.status === "Resolved" ? "text-emerald-400 bg-emerald-500/10" : si.status === "In Progress" ? "text-amber-400 bg-amber-500/10" : "text-red-400 bg-red-500/10"}`}>{si.status}</span>
+                            {si.matchReasons?.map((r) => <span key={r} className="text-xs bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded border border-slate-600">{r}</span>)}
                           </div>
                           <p className="text-sm font-semibold text-slate-200 line-clamp-1">{si.title}</p>
                           {si.location && si.location !== "Unknown" && (
-                            <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                              <MapPin className="w-3 h-3 shrink-0" />
-                              {si.location}
-                            </p>
+                            <p className="text-xs text-slate-500 flex items-center gap-1 mt-0.5"><MapPin className="w-3 h-3 shrink-0" />{si.location}</p>
                           )}
                         </div>
-                        <button
-                          onClick={() => handleUpvoteExisting(si.id)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold transition-all whitespace-nowrap active:scale-95"
-                        >
-                          <ThumbsUp className="w-3.5 h-3.5" />
-                          Upvote (+1) Existing
+                        <button onClick={() => handleUpvoteExisting(si.id)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-xs font-bold transition-all whitespace-nowrap active:scale-95">
+                          <ThumbsUp className="w-3.5 h-3.5" /> Upvote (+1) Existing
                         </button>
                       </div>
                     </div>
@@ -599,30 +413,21 @@ export default function IssueForm({ existingIssues = [], onSubmit }) {
               </div>
             )}
 
-            {/* Upvote success message */}
             {upvotedId && (
               <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-4 flex items-center gap-3">
                 <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
                 <div>
                   <p className="text-sm font-bold text-emerald-300">Upvote registered! 🎉</p>
-                  <p className="text-xs text-emerald-600 mt-0.5">
-                    Your voice helps this issue get resolved faster. Resetting form…
-                  </p>
+                  <p className="text-xs text-emerald-600 mt-0.5">Your voice helps this get resolved faster. Resetting…</p>
                 </div>
               </div>
             )}
 
-            {/* Submit button */}
             {!upvotedId && (
-              <button
-                id="submit-issue-btn"
-                onClick={handleSubmit}
-                className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
-              >
+              <button onClick={handleSubmit}
+                className="w-full flex items-center justify-center gap-2 py-3 px-6 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-sm shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0">
                 <Send className="w-4 h-4" />
-                {similarIssues.length > 0
-                  ? "Submit as New Report Anyway"
-                  : "Submit Issue Report"}
+                {similarIssues.length > 0 ? "Submit as New Report Anyway" : "Submit Issue Report"}
               </button>
             )}
           </div>

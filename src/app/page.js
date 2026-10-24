@@ -1,15 +1,32 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
-import Navbar       from "@/components/Navbar";
-import CampusPulse  from "@/components/CampusPulse";
-import IssueForm    from "@/components/IssueForm";
-import FilterBar    from "@/components/FilterBar";
-import IssueCard    from "@/components/IssueCard";
-import seedIssues   from "@/data/seedIssues";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import Navbar      from "@/components/Navbar";
+import CampusPulse from "@/components/CampusPulse";
+import IssueForm   from "@/components/IssueForm";
+import FilterBar   from "@/components/FilterBar";
+import IssueCard   from "@/components/IssueCard";
+import seedIssues  from "@/data/seedIssues";
 
-// Deep-clone seed data so resets always restore the original
-const INITIAL_ISSUES = seedIssues.map((i) => ({ ...i }));
+// Deep-clone seed data once so resets always get a fresh copy
+const SEED = seedIssues.map((i) => ({ ...i }));
+
+// ── Persistence helpers ───────────────────────────────────────────────────────
+
+const LS_ISSUES = "campusecho_issues_v2";
+const LS_ROLE   = "campusecho_role";
+
+function loadIssues() {
+  try {
+    const raw = localStorage.getItem(LS_ISSUES);
+    if (raw) return JSON.parse(raw);
+  } catch {}
+  return SEED.map((i) => ({ ...i }));
+}
+
+function loadRole() {
+  try { return localStorage.getItem(LS_ROLE) || "student"; } catch { return "student"; }
+}
 
 // ── Filter logic ──────────────────────────────────────────────────────────────
 
@@ -19,17 +36,12 @@ function applyFilters(issues, { category, status, search }) {
     if (category && category !== "All" && issue.category !== category) return false;
     if (status   && status   !== "All" && issue.status   !== status)   return false;
     if (q) {
-      const haystack = [
-        issue.title,
-        issue.summary,
-        issue.summaryBn,
-        issue.location,
-        issue.category,
+      const hay = [
+        issue.title, issue.summary, issue.summaryBn,
+        issue.location, issue.category,
         ...(issue.keywords ?? []),
-      ]
-        .join(" ")
-        .toLowerCase();
-      if (!haystack.includes(q)) return false;
+      ].join(" ").toLowerCase();
+      if (!hay.includes(q)) return false;
     }
     return true;
   });
@@ -38,60 +50,96 @@ function applyFilters(issues, { category, status, search }) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
-  const [issues,  setIssues]  = useState(INITIAL_ISSUES);
+  // Issues state — initialised from localStorage on client
+  const [issues, setIssues] = useState(() => SEED.map((i) => ({ ...i })));
+  const [role,   setRole]   = useState("student");
+  const [hydrated, setHydrated] = useState(false);
+
+  // Hydrate from localStorage after mount (avoids SSR mismatch)
+  useEffect(() => {
+    setIssues(loadIssues());
+    setRole(loadRole());
+    setHydrated(true);
+  }, []);
+
+  // Persist issues to localStorage on every change (after hydration)
+  useEffect(() => {
+    if (!hydrated) return;
+    try { localStorage.setItem(LS_ISSUES, JSON.stringify(issues)); } catch {}
+  }, [issues, hydrated]);
+
+  // Persist role
+  useEffect(() => {
+    if (!hydrated) return;
+    try { localStorage.setItem(LS_ROLE, role); } catch {}
+  }, [role, hydrated]);
+
+  // Filters state
   const [filters, setFilters] = useState({ category: "All", status: "All", search: "" });
 
-  // ── Filtered list for IssueCard feed ─────────────────────────────────────
+  // Filtered feed
   const filtered = useMemo(() => applyFilters(issues, filters), [issues, filters]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
-  /** Called by IssueForm when user submits a new issue or upvotes an existing one */
+  /** Submit new issue or upvote existing */
   const handleSubmit = useCallback((payload) => {
     if (payload.__upvote) {
-      // Increment similarCount on the target issue
       setIssues((prev) =>
-        prev.map((i) =>
-          i.id === payload.id ? { ...i, similarCount: (i.similarCount ?? 0) + 1 } : i
-        )
+        prev.map((i) => i.id === payload.id ? { ...i, similarCount: (i.similarCount ?? 0) + 1 } : i)
       );
       return;
     }
-    // Prepend new issue so it appears at the top
     setIssues((prev) => [payload, ...prev]);
   }, []);
 
-  /** Called by IssueCard +1 button */
+  /** Student +1 upvote button on card */
   const handleUpvote = useCallback((id) => {
     setIssues((prev) =>
-      prev.map((i) =>
-        i.id === id ? { ...i, similarCount: (i.similarCount ?? 0) + 1 } : i
-      )
+      prev.map((i) => i.id === id ? { ...i, similarCount: (i.similarCount ?? 0) + 1 } : i)
     );
   }, []);
 
-  /** Called by IssueCard status selector */
+  /** Authority — status change */
   const handleStatusChange = useCallback((id, newStatus) => {
     setIssues((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, status: newStatus } : i))
+      prev.map((i) => i.id === id ? { ...i, status: newStatus } : i)
     );
   }, []);
 
-  /** Navbar "Reset Demo Data" */
+  /** Authority — save official remark */
+  const handleAuthorityNote = useCallback((id, note, updatedBy) => {
+    setIssues((prev) =>
+      prev.map((i) => i.id === id ? { ...i, authorityNote: note, updatedBy } : i)
+    );
+  }, []);
+
+  /** Authority — delete report */
+  const handleDelete = useCallback((id) => {
+    setIssues((prev) => prev.filter((i) => i.id !== id));
+  }, []);
+
+  /** Reset all data + role */
   const handleReset = useCallback(() => {
-    setIssues(INITIAL_ISSUES.map((i) => ({ ...i })));
+    const fresh = SEED.map((i) => ({ ...i }));
+    setIssues(fresh);
+    setRole("student");
     setFilters({ category: "All", status: "All", search: "" });
+    try {
+      localStorage.removeItem(LS_ISSUES);
+      localStorage.removeItem(LS_ROLE);
+    } catch {}
   }, []);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-900">
-      <Navbar onResetDemo={handleReset} />
+      <Navbar currentRole={role} onRoleChange={setRole} onResetDemo={handleReset} />
 
       <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* ── Hero blurb ── */}
+        {/* ── Hero ── */}
         <div className="mb-8 text-center sm:text-left">
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight mb-2">
             Campus Issues,{" "}
@@ -101,24 +149,26 @@ export default function HomePage() {
           </h1>
           <p className="text-slate-400 text-sm sm:text-base max-w-2xl">
             Report any IIUC Kumira campus problem — in any language. Our open-weight AI
-            extracts structured data, detects duplicates, and routes each issue to the
-            right office automatically.
+            extracts structured data, detects duplicates, and routes each issue to the right office.
           </p>
         </div>
 
-        {/* ── Campus Pulse stats (reactive to all issues, not just filtered) ── */}
+        {/* ── Campus Pulse (tracks ALL issues, not just filtered) ── */}
         <CampusPulse issues={issues} />
 
-        {/* ── Two-column layout on large screens ── */}
+        {/* ── Two-column layout ── */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-6 lg:gap-8 items-start">
 
-          {/* Left: Issue feed ─────────────────────────────────────── */}
+          {/* Left: Issue feed */}
           <section aria-label="Issue feed" className="order-2 lg:order-1">
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
                 <div className="w-1 h-5 rounded-full bg-gradient-to-b from-indigo-500 to-violet-500" />
                 <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
                   Issue Feed
+                  {role === "authority" && (
+                    <span className="ml-2 text-amber-500">· Authority View</span>
+                  )}
                 </h2>
               </div>
               <span className="text-xs text-slate-600 tabular-nums">
@@ -144,19 +194,23 @@ export default function HomePage() {
                   <IssueCard
                     key={issue.id}
                     issue={issue}
+                    currentRole={role}
                     onUpvote={handleUpvote}
                     onStatusChange={handleStatusChange}
+                    onAuthorityNote={handleAuthorityNote}
+                    onDelete={handleDelete}
                   />
                 ))}
               </div>
             )}
           </section>
 
-          {/* Right: Report form (sticky on desktop) ──────────────── */}
+          {/* Right: Report form / authority panel (sticky on desktop) */}
           <aside className="order-1 lg:order-2 lg:sticky lg:top-24 lg:self-start">
             <IssueForm
               existingIssues={issues}
               onSubmit={handleSubmit}
+              currentRole={role}
             />
           </aside>
         </div>
@@ -172,7 +226,7 @@ export default function HomePage() {
           <p>
             Powered by{" "}
             <span className="text-indigo-400">Ollama / qwen2.5:3b</span> +{" "}
-            <span className="text-blue-400">Gemini fallback</span> · Open-weight AI
+            <span className="text-blue-400">Gemma cloud fallback</span> · Open-weight AI
           </p>
         </div>
       </footer>
