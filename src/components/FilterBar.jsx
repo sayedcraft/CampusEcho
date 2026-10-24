@@ -8,10 +8,10 @@ const ALL_STATUSES   = ["All", ...STATUSES];
 
 /** Active style per status value */
 const STATUS_ACTIVE = {
-  All:          "bg-slate-600 border-slate-500 text-slate-200",
-  Open:         "bg-red-500/25 border-red-500/50 text-red-300",
-  "In Progress":"bg-amber-500/25 border-amber-500/50 text-amber-300",
-  Resolved:     "bg-emerald-500/25 border-emerald-500/50 text-emerald-300",
+  All:          "bg-slate-100 border-slate-200 text-slate-800",
+  Open:         "bg-amber-50 border-amber-200 text-amber-800",
+  "In Progress":"bg-blue-50 border-blue-200 text-blue-800",
+  Resolved:     "bg-emerald-50 border-emerald-200 text-emerald-800",
 };
 
 export default function FilterBar({ filters = {}, onChange }) {
@@ -32,7 +32,7 @@ export default function FilterBar({ filters = {}, onChange }) {
           placeholder="Search by title, location, keywords…"
           value={search}
           onChange={(e) => update("search", e.target.value)}
-          className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-200 placeholder:text-slate-600 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all"
+          className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-10 text-sm text-slate-900 placeholder:text-slate-400 transition-all focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500/30"
         />
         {search && (
           <button
@@ -54,8 +54,8 @@ export default function FilterBar({ filters = {}, onChange }) {
             aria-pressed={category === cat}
             className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-150 ${
               category === cat
-                ? "bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-500/20"
-                : "bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-300"
+                ? "bg-indigo-600 border-indigo-600 text-white shadow-sm shadow-indigo-200"
+                : "bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900"
             }`}
           >
             {cat}
@@ -74,7 +74,7 @@ export default function FilterBar({ filters = {}, onChange }) {
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150 ${
               status === s
                 ? STATUS_ACTIVE[s]
-                : "bg-slate-800/60 border-slate-700 text-slate-500 hover:text-slate-300 hover:border-slate-600"
+                : "bg-white border-slate-200 text-slate-600 hover:text-slate-900 hover:border-slate-300"
             }`}
           >
             {s === "All" ? "All Statuses" : s}

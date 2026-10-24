@@ -10,6 +10,7 @@ import FilterBar            from "@/components/FilterBar";
 import IssueCard            from "@/components/IssueCard";
 import AuthModal            from "@/components/AuthModal";
 import TrendingSlider       from "@/components/TrendingSlider";
+import CommunityWall        from "@/components/CommunityWall";
 import seedIssues           from "@/data/seedIssues";
 
 // Deep-clone seed data once so resets always get a fresh copy
@@ -157,6 +158,9 @@ export default function HomePage() {
       prev.map((i) => i.id === id ? {
         ...i,
         status: newStatus,
+        resolvedAt: newStatus === "Resolved"
+          ? i.status === "Resolved" ? i.resolvedAt ?? new Date().toISOString() : new Date().toISOString()
+          : null,
         updatedBy: `${user.name} (${user.id})`,
       } : i)
     );
@@ -180,6 +184,42 @@ export default function HomePage() {
     setIssues((prev) => prev.filter((i) => i.id !== id));
   }, [role]);
 
+  const handleCommunityReaction = useCallback((id) => {
+    if (role !== "student" || !user) return;
+    setIssues((prev) =>
+      prev.map((issue) => {
+        if (issue.id !== id) return issue;
+        const thanksBy = issue.thanksBy ?? [];
+        if (thanksBy.includes(user.id)) return issue;
+        return {
+          ...issue,
+          thanksBy: [...thanksBy, user.id],
+          thanksCount: (issue.thanksCount ?? 0) + 1,
+        };
+      })
+    );
+  }, [role, user]);
+
+  const handleCommunityComment = useCallback((id, text) => {
+    if (role !== "student" || !user) return;
+    const message = text.trim();
+    if (!message) return;
+    setIssues((prev) =>
+      prev.map((issue) => issue.id === id ? {
+        ...issue,
+        comments: [
+          ...(issue.comments ?? []),
+          {
+            id: `comment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            name: user.name,
+            text: message,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      } : issue)
+    );
+  }, [role, user]);
+
   /** Reset all issue data while keeping the current account signed in. */
   const handleReset = useCallback(() => {
     const fresh = SEED.map((i) => ({ ...i }));
@@ -196,7 +236,7 @@ export default function HomePage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-900">
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
       <Navbar
         user={user}
         language={language}
@@ -209,18 +249,19 @@ export default function HomePage() {
         <CampusPulse issues={issues} language={language} />
 
         <nav aria-label="Main sections" className="my-8 flex justify-center">
-          <div className="inline-flex max-w-full overflow-x-auto rounded-2xl border border-slate-700/70 bg-slate-800/70 p-1.5 shadow-lg shadow-black/10">
+          <div className="flex w-full max-w-5xl flex-wrap justify-center rounded-2xl border border-slate-200/80 bg-white p-1.5 shadow-sm shadow-slate-200/40">
             {[
               { id: "feed", label: "📢 Issue Feed & Report" },
               { id: "zones", label: "🗺️ IIUC Zone Radar" },
               { id: "ai", label: "✨ AI Intelligence & Q&A" },
+              { id: "community", label: "🤝 Community & Impact" },
             ].map((tab) => (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
                 aria-pressed={activeTab === tab.id}
-                className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${
+                className={`rounded-xl px-3 py-2.5 text-center text-xs font-semibold transition-all sm:px-4 sm:text-sm ${
                   activeTab === tab.id
-                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-900/30"
-                    : "text-slate-400 hover:bg-slate-700/70 hover:text-slate-100"
+                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200"
+                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                 }`}>
                 {tab.label}
               </button>
@@ -253,12 +294,12 @@ export default function HomePage() {
               }} />
               {zoneFilter && (
                 <button onClick={() => setZoneFilter(null)}
-                  className="rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1.5 text-xs text-indigo-300">
+                  className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs text-indigo-700">
                   {ZONES.find((zone) => zone.id === zoneFilter)?.name} ×
                 </button>
               )}
               {filtered.length === 0 ? (
-                <div className="rounded-2xl border border-slate-700/50 bg-slate-800/40 p-8 text-center text-sm text-slate-400">
+                <div className="rounded-2xl border border-slate-200/80 bg-white p-8 text-center text-sm text-slate-600 shadow-sm">
                   {language === "bn" ? "কোনো সমস্যা পাওয়া যায়নি।" : "No issues match these filters."}
                 </div>
               ) : (
@@ -297,14 +338,14 @@ export default function HomePage() {
                     setFilters({ category: "All", status: "All", search: "" });
                     setActiveTab("feed");
                   }}
-                    className="group rounded-2xl border border-slate-700/60 bg-slate-800/50 p-6 text-left shadow-lg shadow-black/10 transition-all hover:-translate-y-1 hover:border-indigo-500/40 hover:bg-slate-800">
+                    className="group rounded-2xl border border-slate-200/80 bg-white p-6 text-left shadow-sm shadow-slate-200/40 transition-all hover:-translate-y-1 hover:border-indigo-300 hover:shadow-md">
                     <div className="mb-6 flex items-start justify-between">
                       <span className="text-3xl">{zone.icon}</span>
-                      <span className="rounded-full border border-slate-700 bg-slate-900/70 px-3 py-1 text-xs text-slate-400">
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-600">
                         {zoneIssues.length} {language === "bn" ? "টি রিপোর্ট" : zoneIssues.length === 1 ? "report" : "reports"}
                       </span>
                     </div>
-                    <h2 className="mb-4 text-lg font-semibold text-white">
+                    <h2 className="mb-4 text-lg font-semibold text-slate-900">
                       {language === "bn" ? ({
                         cse: "সিএসই ভবন",
                         library: "কেন্দ্রীয় লাইব্রেরি",
@@ -314,12 +355,12 @@ export default function HomePage() {
                         admin: "প্রশাসনিক অফিস",
                       }[zone.id]) : zone.name}
                     </h2>
-                    <div className="h-2 overflow-hidden rounded-full bg-slate-700">
+                    <div className="h-2 overflow-hidden rounded-full bg-slate-100">
                       <div className={`h-full rounded-full transition-all ${
                         intensity > 60 ? "bg-rose-500" : intensity > 0 ? "bg-amber-400" : "bg-emerald-500"
                       }`} style={{ width: `${intensity}%` }} />
                     </div>
-                    <div className="mt-2 flex justify-between text-xs text-slate-500">
+                    <div className="mt-2 flex justify-between text-xs text-slate-600">
                       <span>{language === "bn" ? "খোলা সমস্যা" : "Open issues"}</span>
                       <span>{openCount}</span>
                     </div>
@@ -336,13 +377,25 @@ export default function HomePage() {
             <AskCampusAI issues={issues} language={language} />
           </div>
         )}
+
+        {activeTab === "community" && (
+          <CommunityWall
+            issues={issues}
+            language={language}
+            currentUser={user}
+            currentRole={role}
+            onReact={handleCommunityReaction}
+            onAddComment={handleCommunityComment}
+            onRequestLogin={() => setShowAuthModal(true)}
+          />
+        )}
       </main>
 
       {/* ── Footer ── */}
-      <footer className="border-t border-slate-800 py-6 mt-8">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-600">
+      <footer className="border-t border-slate-200 py-6 mt-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
           <p>
-            <span className="text-slate-400 font-semibold">CampusEcho</span> — IIUC Kumira
+            <span className="text-slate-700 font-semibold">CampusEcho</span> — IIUC Kumira
             Campus Edition · Built for the IIUC Hackathon 2026
           </p>
           <p>

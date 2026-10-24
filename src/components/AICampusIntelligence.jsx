@@ -65,9 +65,9 @@ export default function AICampusIntelligence({ issues = [], language = "en" }) {
   return (
     <section
       aria-label="AI Campus Intelligence"
-      className="mb-8 rounded-2xl overflow-hidden border border-indigo-500/20 relative"
+      className="relative mb-8 overflow-hidden rounded-2xl border border-indigo-100 bg-white shadow-sm shadow-slate-200/40"
       style={{
-        background: "linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(139,92,246,0.06) 50%, rgba(15,23,42,0.95) 100%)",
+        background: "linear-gradient(135deg, #eef2ff 0%, #ffffff 48%, #f5f3ff 100%)",
       }}
     >
       {/* Glow effect */}
@@ -77,20 +77,20 @@ export default function AICampusIntelligence({ issues = [], language = "en" }) {
       </div>
 
       {/* Header */}
-      <div className="relative px-5 sm:px-6 pt-5 pb-4 border-b border-indigo-500/15">
+      <div className="relative border-b border-indigo-100 px-5 pb-4 pt-5 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/30 shrink-0">
               <Brain className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <h2 className="flex items-center gap-2 text-base font-bold text-slate-900">
                 🧠 {language === "bn" ? "ক্যাম্পাসইকো AI ইন্টেলিজেন্স" : "CampusEcho AI Intelligence"}
                 <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
                   Open-Weight LLM
                 </span>
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="mt-0.5 text-xs text-slate-600">
                 {language === "bn"
                   ? `${openIssues.length}টি সক্রিয় সমস্যা · Ollama / Gemma`
                   : <>Ollama <span className="text-indigo-400">{`qwen2.5:3b`}</span> · Gemma · {openIssues.length} active</>}
@@ -115,7 +115,7 @@ export default function AICampusIntelligence({ issues = [], language = "en" }) {
       </div>
 
       {/* Body */}
-      <div className="relative px-5 sm:px-6 py-5">
+      <div className="relative px-5 py-5 sm:px-6">
 
         {/* Idle state */}
         {!loading && !result && !error && (
@@ -123,7 +123,7 @@ export default function AICampusIntelligence({ issues = [], language = "en" }) {
             <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center mx-auto mb-4">
               <Brain className="w-8 h-8 text-indigo-400/60" />
             </div>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-slate-600">
               {language === "bn" ? "ক্যাম্পাসের বর্তমান সমস্যাগুলোর AI বিশ্লেষণ চালান।" : "Run an AI briefing on current campus issues."}
             </p>
           </div>
@@ -141,7 +141,7 @@ export default function AICampusIntelligence({ issues = [], language = "en" }) {
                 />
               ))}
             </div>
-            <p className="text-sm text-indigo-300 font-medium">
+            <p className="text-sm font-medium text-indigo-700">
             {language === "bn" ? `${openIssues.length}টি রিপোর্ট বিশ্লেষণ চলছে…` : `Analyzing ${openIssues.length} campus reports…`}
             </p>
           </div>
@@ -191,7 +191,7 @@ export default function AICampusIntelligence({ issues = [], language = "en" }) {
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {result.criticalHotspots.map((h, idx) => (
-                    <div key={idx} className="rounded-xl bg-slate-800/60 border border-slate-700/50 p-4 hover:border-indigo-500/30 transition-colors">
+                    <div key={idx} className="rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-indigo-200">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-bold text-violet-400">{h.area}</span>
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-500/15 text-red-400 border border-red-500/20">
@@ -221,8 +221,8 @@ export default function AICampusIntelligence({ issues = [], language = "en" }) {
                 </p>
                 <div className="space-y-2">
                   {result.priorityOrder.map((item, idx) => (
-                    <div key={idx} className="flex flex-wrap items-center gap-3 rounded-xl bg-slate-800/50 border border-slate-700/40 px-4 py-3">
-                      <span className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold flex items-center justify-center shrink-0">{idx + 1}</span>
+                    <div key={idx} className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-700">{idx + 1}</span>
                       <Building2 className="w-3.5 h-3.5 text-slate-500 shrink-0" />
                       <span className="text-sm font-semibold text-slate-200 flex-1">{item.office}</span>
                       <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${URGENCY_COLORS[item.urgency] ?? URGENCY_COLORS.Medium}`}>

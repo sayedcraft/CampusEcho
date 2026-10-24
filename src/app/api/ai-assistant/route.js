@@ -196,6 +196,7 @@ function validateAskAnswer(obj, payload) {
   if (!obj || typeof obj !== "object") return false;
   if (typeof obj.answer !== "string" || !obj.answer) return false;
   if (typeof obj.answerBn !== "string" || !obj.answerBn) return false;
+  if ([obj.answer, obj.answerBn].some((answer) => /^<[^>]+>$/.test(answer.trim()))) return false;
   if (!Array.isArray(obj.referencedIssues)) return false;
   const issues = Array.isArray(payload.issues)
     ? payload.issues.filter((issue) => issue && typeof issue === "object")

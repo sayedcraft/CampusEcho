@@ -102,12 +102,28 @@ const seedIssues = [
     suggestedOffice: "Estate & Facilities Office",
     urgency: "High",
     keywords: ["ac", "library", "heat", "reading", "exam", "air conditioning"],
-    status: "In Progress",
+    status: "Resolved",
     authorityNote:
-      "HVAC technician visited on Oct 22. Compressor unit requires a replacement part (model: Gree GWH18AAD). Part ordered from Chittagong supplier — estimated arrival 3–5 business days. Portable fans have been placed on the 2nd floor in the meantime.",
+      "The replacement compressor arrived on Oct 23 and was installed by the HVAC team. Cooling and airflow were tested on the 2nd floor on Oct 24; the reading hall is back in service.",
     updatedBy: "Estate & Facilities Office — Deputy Director",
     createdAt: "2026-10-18T11:30:00.000Z",
+    resolvedAt: "2026-10-24T08:30:00.000Z",
     similarCount: 5,
+    thanksCount: 9,
+    comments: [
+      {
+        id: "issue-2-comment-1",
+        name: "Nusrat Jahan",
+        text: "The reading hall feels much better now. Thank you for the quick update!",
+        createdAt: "2026-10-24T09:00:00.000Z",
+      },
+      {
+        id: "issue-2-comment-2",
+        name: "Tanvir Hasan",
+        text: "Appreciate the Facilities team getting this fixed before exams.",
+        createdAt: "2026-10-24T09:30:00.000Z",
+      },
+    ],
   },
   {
     id: "issue-3",
@@ -168,7 +184,17 @@ const seedIssues = [
       "All 4 taps have been repaired and water pressure restored to normal. A new pressure regulator valve was installed on Oct 23. Plumbing team has been asked to do monthly inspections of the ablution area going forward.",
     updatedBy: "Estate & Facilities Office — Plumbing Supervisor",
     createdAt: "2026-10-17T13:00:00.000Z",
+    resolvedAt: "2026-10-23T10:00:00.000Z",
     similarCount: 2,
+    thanksCount: 14,
+    comments: [
+      {
+        id: "issue-5-comment-1",
+        name: "Mahmudul Karim",
+        text: "The water pressure is back to normal. Thanks to the maintenance team!",
+        createdAt: "2026-10-23T11:00:00.000Z",
+      },
+    ],
   },
   {
     id: "issue-6",

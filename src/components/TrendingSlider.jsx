@@ -55,20 +55,20 @@ export default function TrendingSlider({ issues = [], currentRole, onUpvote, lan
         const end = event.changedTouches[0]?.clientX;
         if (start !== null && end !== undefined && Math.abs(end - start) > 40) move(end < start ? 1 : -1);
       }}
-      className="overflow-hidden rounded-2xl border border-rose-500/20 bg-gradient-to-br from-rose-500/10 via-slate-800 to-indigo-500/10 p-5 shadow-xl shadow-black/15 sm:p-6">
+      className="overflow-hidden rounded-2xl border border-rose-100 bg-gradient-to-br from-rose-50 via-white to-indigo-50 p-6 shadow-sm shadow-slate-200/40">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-rose-300">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-rose-400" />
+        <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-rose-700">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-rose-500" />
           {language === "bn" ? "ক্যাম্পাস সতর্কতা" : "Urgent campus alerts"}
         </p>
         <div className="flex items-center gap-2">
           <span className="text-xs tabular-nums text-slate-500">{visibleIndex + 1} / {slides.length}</span>
           <button onClick={() => move(-1)} aria-label="Previous alert"
-            className="rounded-lg border border-slate-700 bg-slate-900/50 p-2 text-slate-300 hover:text-white">
+            className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 transition-colors hover:text-slate-900">
             <ChevronLeft className="h-4 w-4" />
           </button>
           <button onClick={() => move(1)} aria-label="Next alert"
-            className="rounded-lg border border-slate-700 bg-slate-900/50 p-2 text-slate-300 hover:text-white">
+            className="rounded-lg border border-slate-200 bg-white p-2 text-slate-600 transition-colors hover:text-slate-900">
             <ChevronRight className="h-4 w-4" />
           </button>
         </div>
@@ -76,26 +76,26 @@ export default function TrendingSlider({ issues = [], currentRole, onUpvote, lan
 
       <div key={issue.id} className="animate-in fade-in duration-300">
         <div className="mb-4 flex items-start gap-3">
-          <span aria-hidden className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-900/70 text-2xl">
+          <span aria-hidden className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-2xl shadow-sm">
             {issue.category === "Transport & Bus" ? "🚌" : issue.category === "Water & Sanitation" ? "💧" : issue.category === "IT & Equipment" ? "💻" : "📍"}
           </span>
           <div className="min-w-0 flex-1">
-            <h2 dir={language === "bn" ? "auto" : undefined} className="line-clamp-1 text-base font-semibold text-white sm:text-lg">{title}</h2>
+            <h2 dir={language === "bn" ? "auto" : undefined} className="line-clamp-1 text-base font-semibold text-slate-900 sm:text-lg">{title}</h2>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              {issue.location && <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-slate-700/80 bg-slate-900/60 px-2.5 py-1 text-xs text-slate-400">
+              {issue.location && <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-slate-200 bg-white/80 px-2.5 py-1 text-xs text-slate-600">
                 <MapPin className="h-3 w-3 shrink-0" /><span className="truncate">{issue.location}</span>
               </span>}
-              <span className={`rounded-full border px-2.5 py-1 text-xs ${issue.status === "Resolved" ? "border-emerald-500/30 text-emerald-300" : issue.status === "In Progress" ? "border-amber-500/30 text-amber-300" : "border-rose-500/30 text-rose-300"}`}>{issue.status}</span>
+              <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${issue.status === "Resolved" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : issue.status === "In Progress" ? "border-blue-200 bg-blue-50 text-blue-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{issue.status}</span>
             </div>
           </div>
           {currentRole === "student" && (
             <button onClick={() => onUpvote?.(issue.id)}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-indigo-500/25 bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-200 hover:bg-indigo-500/20">
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700 transition-colors hover:bg-indigo-100">
               <ThumbsUp className="h-3.5 w-3.5" /> +1
             </button>
           )}
         </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-slate-900/80">
+        <div className="h-1.5 overflow-hidden rounded-full bg-slate-200">
           <div className={`h-full rounded-full transition-all duration-700 ${status.style}`} style={{ width: status.width }} />
         </div>
       </div>

@@ -11,7 +11,7 @@ export default function Navbar({ user, language = "en", onLanguageChange, onOpen
   return (
     <>
       {/* ── Main nav bar ── */}
-      <header className="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-slate-700/50 shadow-xl shadow-black/20">
+      <header className="sticky top-0 z-50 border-b border-slate-200/60 bg-white/80 shadow-sm backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 gap-3">
 
@@ -29,7 +29,7 @@ export default function Navbar({ user, language = "en", onLanguageChange, onOpen
 
             {/* Right controls */}
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-              <div role="group" aria-label="Language" className="flex items-center rounded-xl border border-slate-700 bg-slate-800/80 p-1">
+              <div role="group" aria-label="Language" className="flex items-center rounded-xl border border-slate-200 bg-slate-100 p-1">
                 {[
                   { id: "en", label: "EN" },
                   { id: "bn", label: "বাংলা" },
@@ -37,7 +37,7 @@ export default function Navbar({ user, language = "en", onLanguageChange, onOpen
                   <button key={item.id} onClick={() => onLanguageChange?.(item.id)}
                     aria-pressed={language === item.id}
                     className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
-                      language === item.id ? "bg-indigo-600 text-white" : "text-slate-400 hover:text-white"
+                      language === item.id ? "bg-white text-indigo-700 shadow-sm" : "text-slate-600 hover:text-slate-900"
                     }`}>
                     {item.label}
                   </button>
@@ -58,7 +58,7 @@ export default function Navbar({ user, language = "en", onLanguageChange, onOpen
               <button
                 onClick={onOpenAuth}
                 title="Switch account or log in with an IIUC account"
-                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-700 bg-slate-800 text-slate-300 hover:text-white hover:border-slate-500 transition-all"
+                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 sm:px-3"
               >
                 {language === "bn" ? "অ্যাকাউন্ট" : user ? "Switch account" : "Login"}
               </button>
@@ -67,7 +67,7 @@ export default function Navbar({ user, language = "en", onLanguageChange, onOpen
               <button
                 onClick={onResetDemo}
                 title="Reset to seed data"
-                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 border border-transparent hover:border-slate-700 transition-all duration-200"
+                className="hidden items-center gap-1.5 rounded-lg border border-transparent px-3 py-1.5 text-xs font-medium text-slate-600 transition-all duration-200 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900 sm:flex"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 Reset Demo
@@ -88,7 +88,7 @@ export default function Navbar({ user, language = "en", onLanguageChange, onOpen
         </div>
 
         {user && (
-          <div className="md:hidden px-4 pb-2 text-center border-t border-slate-800/80">
+          <div className="border-t border-slate-200 px-4 pb-2 text-center md:hidden">
             <p className="truncate text-xs font-semibold text-slate-200">{user.name}</p>
             <p className="truncate text-[11px] text-slate-500">
               {user.role === "student" ? user.department : user.designation}

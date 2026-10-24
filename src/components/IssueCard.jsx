@@ -7,19 +7,19 @@ import {
 } from "lucide-react";
 
 const STATUS_BADGE = {
-  Open: "border-rose-500/30 bg-rose-500/10 text-rose-300",
-  "In Progress": "border-amber-500/30 bg-amber-500/10 text-amber-300",
-  Resolved: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+  Open: "border-amber-200 bg-amber-50 text-amber-800",
+  "In Progress": "border-blue-200 bg-blue-50 text-blue-800",
+  Resolved: "border-emerald-200 bg-emerald-50 text-emerald-800",
 };
 const STATUS_OPTIONS = ["Open", "In Progress", "Resolved"];
 const CATEGORY_STYLE = {
-  Facilities: "bg-blue-500/15 text-blue-300",
-  "IT & Equipment": "bg-violet-500/15 text-violet-300",
-  "Water & Sanitation": "bg-cyan-500/15 text-cyan-300",
-  "Transport & Bus": "bg-orange-500/15 text-orange-300",
-  "Admin & Queue": "bg-pink-500/15 text-pink-300",
-  "Seating & Space": "bg-teal-500/15 text-teal-300",
-  Other: "bg-slate-500/15 text-slate-300",
+  Facilities: "bg-blue-50 text-blue-800",
+  "IT & Equipment": "bg-violet-50 text-violet-800",
+  "Water & Sanitation": "bg-cyan-50 text-cyan-800",
+  "Transport & Bus": "bg-orange-50 text-orange-800",
+  "Admin & Queue": "bg-pink-50 text-pink-800",
+  "Seating & Space": "bg-teal-50 text-teal-800",
+  Other: "bg-slate-100 text-slate-700",
 };
 const CATEGORY_ICON = {
   Facilities: "🏢",
@@ -123,14 +123,14 @@ export default function IssueCard({
   };
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-slate-700/50 bg-slate-800/60 p-5 shadow-lg shadow-black/10 transition-colors hover:border-slate-600/70">
+    <article className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm shadow-slate-200/40 transition-all hover:border-slate-300 hover:shadow-md">
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${CATEGORY_STYLE[issue.category] ?? CATEGORY_STYLE.Other}`}>
           <span aria-hidden>{CATEGORY_ICON[issue.category] ?? CATEGORY_ICON.Other}</span>
           {language === "bn" ? CATEGORY_BN[issue.category] ?? issue.category : issue.category}
         </span>
         {issue.location && issue.location !== "Unknown" && (
-          <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-slate-700 bg-slate-900/50 px-3 py-1.5 text-xs text-slate-400">
+          <span className="inline-flex max-w-full items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600">
             <MapPin className="h-3 w-3 shrink-0" />
             <span className="truncate">{issue.location}</span>
           </span>
@@ -140,21 +140,21 @@ export default function IssueCard({
         </span>
       </div>
 
-      <p dir={language === "bn" ? "auto" : undefined} className="mb-5 line-clamp-1 text-base font-semibold leading-6 text-slate-100">
+      <p dir={language === "bn" ? "auto" : undefined} className="mb-5 line-clamp-1 text-base font-semibold leading-6 text-slate-900">
         {summary}
       </p>
 
       <div className="mb-5" aria-label={`${issue.urgency ?? "Medium"} impact, ${affectedCount} affected`}>
-        <div className="h-2 overflow-hidden rounded-full bg-slate-700/80">
+        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
           <div className={`h-full rounded-full bg-gradient-to-r ${impactColor} transition-all duration-500`} style={{ width: `${impact}%` }} />
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-t border-slate-700/50 pt-3">
+      <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-3">
         {currentRole === "student" ? (
           <button onClick={handleUpvote} disabled={upvoted}
             className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
-              upvoted ? "bg-indigo-500/15 text-indigo-300" : "bg-slate-700/70 text-slate-300 hover:bg-indigo-500/15 hover:text-indigo-200"
+              upvoted ? "bg-indigo-50 text-indigo-700" : "bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-700"
             }`}>
             <ThumbsUp className="h-3.5 w-3.5" />
             {language === "bn" ? `প্রভাবিত ${affectedCount}` : `+1 Affected (${affectedCount})`}
@@ -165,7 +165,7 @@ export default function IssueCard({
           </span>
         )}
         <button onClick={() => setExpanded((value) => !value)} aria-expanded={expanded}
-          className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-400 transition-colors hover:bg-slate-700/60 hover:text-white">
+          className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900">
           {expanded
             ? <>{language === "bn" ? "বন্ধ করুন" : "Hide"} <ChevronUp className="h-3.5 w-3.5" /></>
             : <>{language === "bn" ? "বিস্তারিত" : "Details"} <ChevronDown className="h-3.5 w-3.5" /></>}
@@ -173,7 +173,7 @@ export default function IssueCard({
       </div>
 
       {expanded && (
-        <div className="mt-4 space-y-4 border-t border-slate-700/50 pt-4">
+        <div className="mt-4 space-y-4 border-t border-slate-200 pt-4">
           <div className="space-y-2 text-sm leading-relaxed text-slate-400">
             {issue.description && <p dir="auto">{issue.description}</p>}
             <p className="text-xs text-slate-500">
@@ -187,24 +187,24 @@ export default function IssueCard({
             {issue.keywords?.length > 0 && (
               <div className="flex flex-wrap gap-1.5">
                 {issue.keywords.map((keyword) => (
-                  <span key={keyword} className="rounded-md bg-slate-900/70 px-2 py-1 text-xs text-slate-500">#{keyword}</span>
+                  <span key={keyword} className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600">#{keyword}</span>
                 ))}
               </div>
             )}
           </div>
 
           {noteText && !editingNote && (
-            <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
               <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-amber-300">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 {language === "bn" ? "কর্তৃপক্ষের নোট" : "Official update"}
               </p>
-              <p className="whitespace-pre-line text-sm leading-relaxed text-amber-100/90">{noteText}</p>
+              <p className="whitespace-pre-line text-sm leading-relaxed text-amber-950">{noteText}</p>
             </div>
           )}
 
           {isAuthority && (
-            <div className="space-y-4 rounded-xl border border-amber-500/15 bg-amber-500/5 p-4">
+            <div className="space-y-4 rounded-xl border border-amber-200 bg-amber-50/70 p-4">
               <div className="flex flex-wrap items-center gap-2">
                 {STATUS_OPTIONS.map((option) => (
                   <button key={option} onClick={() => onStatusChange?.(issue.id, option)}
