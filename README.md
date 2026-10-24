@@ -52,6 +52,16 @@ Live Campus Pulse dashboard shows what's open, in-progress, resolved
 
 **Languages supported:** English · বাংলা · Banglish (and any mix of the three)
 
+### IIUC Login & Live Q&A
+
+- Log in as a student or teacher/authority with an IIUC ID; one-click demo accounts are available for both roles.
+- Student reports show the reporter by default, with an option to hide the student's ID publicly.
+- Student accounts can upvote reports. Teacher/authority demo accounts can update status, write official remarks, draft AI action plans, and delete reports.
+- Ask CampusEcho AI questions in Bangla, Banglish, or English. Answers use only the current issue feed and cite the referenced issue IDs and statuses.
+- The active demo account and issue feed are stored in this browser's `localStorage`; there is no server-side identity verification or shared account database.
+
+> **Demo authentication notice:** These zero-config accounts demonstrate the interface and role-based controls only. Client-side roles and the shared authority passcode are not production authentication or a security boundary.
+
 ---
 
 ## 🤖 Open-Weight AI Model Disclosure
@@ -221,13 +231,12 @@ Open **http://localhost:3000** — the app is live.
 
 ### 5 — Try the demo flow
 
-1. Click any **Quick Demo Preset** chip (📽️ 💧 🚌)
-2. Click **"Analyze Issue with AI"**
-3. Watch structured output appear in Step 2
-4. See **Similar Issue Detection** highlight existing reports
-5. Click **"Upvote (+1) Existing"** or **"Submit as New Report Anyway"**
-6. Watch **Campus Pulse** stats update in real time
-7. Use the status selector on any card to move an issue from `Open` → `In Progress` → `Resolved`
+1. Log in with one of the demo student accounts in **Switch Account / Login**.
+2. Click any **Quick Demo Preset** chip (📽️ 💧 🚌), then **Analyze Issue with AI**.
+3. Review the structured output and similar reports; upvote an existing report or submit a new one.
+4. Ask one of the sample questions in **Ask CampusEcho AI** to see a bilingual answer with issue references.
+5. Switch to a demo teacher or authority account to update statuses, add remarks, draft an AI action plan, and delete reports.
+6. Watch **Campus Pulse** stats update in real time.
 
 ---
 

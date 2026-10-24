@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useSyncExternalStore } from "react";
 import {
   Send, Loader2, AlertTriangle, ChevronRight,
   RotateCcw, CheckCircle2, Edit3, Zap, MapPin,
   Tag, FileText, Globe, Building2, Hash, ThumbsUp,
-  ShieldCheck, Mic, MicOff, Bot,
+  ShieldCheck, Mic, MicOff,
 } from "lucide-react";
 import { CATEGORIES, IIUC_LOCATIONS } from "@/data/seedIssues";
 import { findSimilarIssues } from "@/lib/similarity";
@@ -13,17 +13,17 @@ import { findSimilarIssues } from "@/lib/similarity";
 // ── Demo presets ──────────────────────────────────────────────────────────────
 const PRESETS = [
   {
-    emoji: "📽️", label: "Broken Lab Projector",
+    emoji: "📽️", label: "Projector",
     description: "CSE Building Lab 302 te projector last 2 week dhore kaaj korche na. Class er time instructor slides dekhate parchen na properly. Projector starts but flickers badly and goes black after 5 minutes. Multiple faculty reported this to IT cell but no repair yet.",
     location: "CSE Building - Lab 302", category: "IT & Equipment",
   },
   {
-    emoji: "💧", label: "No Drinking Water",
+    emoji: "💧", label: "Water",
     description: "Central Library 2nd floor e water purifier 3 din dhore completely empty. Exam season e students paani pete niche go down korte hoy ba cafeteria theke buy korte hoy. Filter machine is installed but tank is not being refilled.",
     location: "Central Library - 2nd Floor", category: "Water & Sanitation",
   },
   {
-    emoji: "🚌", label: "Chawkbazar Bus Crowding",
+    emoji: "🚌", label: "Bus",
     description: "Chawkbazar to IIUC Kumira morning 8:00 AM shuttle te only one bus comes but 50+ students waiting. Students have to push to get on, many get left behind and miss first class. Need at least one extra bus during peak morning hours.",
     location: "Kumira Bus Point (Chawkbazar Route)", category: "Transport & Bus",
   },
@@ -36,44 +36,10 @@ const URGENCY_BTN_ACTIVE = {
   High:   "bg-red-500/20 text-red-300 border-red-500/40",
 };
 
-// ── Category keyword rules for client-side preview ────────────────────────────
-const CAT_RULES = [
-  { pattern: /projector|pc|computer|printer|wifi|network|lab equipment|broken screen|keyboard|mouse|software/i, cat: "IT & Equipment" },
-  { pattern: /water|tap|pipe|washroom|toilet|wc|ablution|odhukhan/i,                                           cat: "Water & Sanitation" },
-  { pattern: /bus|shuttle|transport|route|schedule|driver|vehicle/i,                                            cat: "Transport & Bus" },
-  { pattern: /ac|air condition|fan|light|electricity|ceiling|chair|desk|door|lock|paint|repair/i,               cat: "Facilities" },
-  { pattern: /queue|form|office|certificate|admit card|result|registration|admin/i,                              cat: "Admin & Queue" },
-  { pattern: /seat|room|space|overcrowd|capacity|bench|hall|class.*full/i,                                       cat: "Seating & Space" },
-];
-const CAT_OFFICE = {
-  "IT & Equipment":     "IT & Maintenance Cell",
-  "Facilities":         "Estate & Facilities Office",
-  "Water & Sanitation": "Estate & Facilities Office",
-  "Transport & Bus":    "Transport Division",
-  "Admin & Queue":      "Academic Admin Office",
-  "Seating & Space":    "Academic Admin Office",
-  "Other":              "Student Affairs Office",
-};
-
-function clientPreview(description, location, categoryOverride) {
-  if (description.trim().length < 15) return null;
-  let cat = categoryOverride || null;
-  if (!cat) {
-    for (const rule of CAT_RULES) {
-      if (rule.pattern.test(description)) { cat = rule.cat; break; }
-    }
-    cat = cat || "Other";
-  }
-  let urgency = "Medium";
-  if (/urgent|immediately|cannot|completely broken|not working|3 days|week/i.test(description)) urgency = "High";
-  else if (/minor|sometimes|occasionally|small/i.test(description))                              urgency = "Low";
-  return {
-    category: cat,
-    urgency,
-    location: location?.trim() || "Not specified",
-    office: CAT_OFFICE[cat] || "Student Affairs Office",
-  };
-}
+const subscribeSpeechSupport = () => () => {};
+const getSpeechSupport = () => typeof window !== "undefined"
+  && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+const getServerSpeechSupport = () => false;
 
 function buildFallbackAnalysis(description, location, category) {
   const keywords = description.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 3).slice(0, 5);
@@ -90,7 +56,7 @@ function buildFallbackAnalysis(description, location, category) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function IssueForm({ existingIssues = [], onSubmit, currentRole = "student" }) {
+export default function IssueForm({ existingIssues = [], onSubmit, currentUser, currentRole, onRequestLogin, language = "en" }) {
   // Step 1 inputs
   const [description, setDescription] = useState("");
   const [location,    setLocation]    = useState("");
@@ -114,10 +80,16 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentRole =
   // Similar issues
   const [similarIssues, setSimilarIssues] = useState([]);
   const [upvotedId,     setUpvotedId]     = useState(null);
+  const [anonymous,     setAnonymous]     = useState(false);
+  const [affectedCount, setAffectedCount] = useState(10);
 
   // ── Voice input (Web Speech API) ───────────────────────────────────────────
   const recognitionRef = useRef(null);
-  const [speechSupported, setSpeechSupported] = useState(false);
+  const speechSupported = useSyncExternalStore(
+    subscribeSpeechSupport,
+    getSpeechSupport,
+    getServerSpeechSupport,
+  );
   const [isListening,     setIsListening]     = useState(false);
   const [voiceLang,       setVoiceLang]       = useState("bn-BD");
   const [interimText,     setInterimText]     = useState("");
@@ -126,7 +98,6 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentRole =
     const SpeechRec = (typeof window !== "undefined")
       && (window.SpeechRecognition || window.webkitSpeechRecognition);
     if (!SpeechRec) return;
-    setSpeechSupported(true);
     const rec = new SpeechRec();
     rec.continuous     = true;
     rec.interimResults = true;
@@ -160,21 +131,6 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentRole =
     }
   };
 
-  // ── Client-side AI preview (live as user types) ────────────────────────────
-  const preview = useMemo(() => clientPreview(description, location, category), [description, location, category]);
-
-  const duplicatePreview = useMemo(() => {
-    if (!preview || description.length < 20) return [];
-    const candidate = {
-      description,
-      summary:  description,
-      keywords: description.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 3).slice(0, 5),
-      category: preview.category,
-      location,
-    };
-    return findSimilarIssues(candidate, existingIssues);
-  }, [description, location, preview, existingIssues]);
-
   // ── Helpers ────────────────────────────────────────────────────────────────
 
   const resetForm = () => {
@@ -183,6 +139,8 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentRole =
     setEditSummary(""); setEditBn(""); setEditCategory(""); setEditLocation("");
     setEditUrgency("Medium"); setEditOffice(""); setEditKeywords([]);
     setIsListening(false); setInterimText("");
+    setAnonymous(false);
+    setAffectedCount(10);
   };
 
   const applyPreset = (preset) => {
@@ -235,6 +193,9 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentRole =
       category: editCategory, location: editLocation,
       suggestedOffice: editOffice, urgency: editUrgency,
       keywords: editKeywords,
+      affectedCount,
+      reporterName: anonymous ? "Anonymous IIUC Student" : currentUser.name,
+      reporterId: anonymous ? "Anonymous Student" : currentUser.id,
       status: "Open", authorityNote: null, updatedBy: null,
       createdAt: new Date().toISOString(),
       similarCount: similarIssues.length,
@@ -246,7 +207,7 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentRole =
 
   const modelBadge =
     modelUsed.startsWith("ollama") ? "bg-violet-500/20 text-violet-300 border-violet-500/30" :
-    modelUsed.startsWith("gemini") ? "bg-blue-500/20 text-blue-300 border-blue-500/30" :
+    (modelUsed.startsWith("gemma") || modelUsed.startsWith("gemini")) ? "bg-blue-500/20 text-blue-300 border-blue-500/30" :
     "bg-slate-700 text-slate-400 border-slate-600";
 
   const canAnalyze = !loading && description.trim().length >= 20;
@@ -261,11 +222,24 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentRole =
           </div>
           <h2 className="text-base font-bold text-amber-300 mb-2">Authority Dashboard Active</h2>
           <p className="text-sm text-slate-400 leading-relaxed">
-            You are logged in as <span className="text-amber-300 font-semibold">IIUC Faculty / Staff</span>.
+            You are logged in as <span className="text-amber-300 font-semibold">{currentUser.name} ({currentUser.id})</span>.
             Use the controls on each issue card to update statuses, post official remarks, or remove invalid reports.
           </p>
-          <p className="text-xs text-slate-600 mt-3">Switch to Student Mode to report a new issue.</p>
+          <p className="text-xs text-slate-600 mt-3">Switch to a student account to report a new issue.</p>
         </div>
+      </section>
+    );
+  }
+
+  if (!currentUser) {
+    return (
+      <section id="report-form" className="rounded-2xl bg-slate-800/40 border border-slate-700/50 p-6 text-center">
+        <h2 className="text-base font-bold text-slate-100 mb-2">Login to report a campus issue</h2>
+        <p className="text-sm text-slate-400 mb-4">Sign in with an IIUC student account to submit or upvote reports.</p>
+        <button onClick={onRequestLogin}
+          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold transition-colors">
+          Switch Account / Login
+        </button>
       </section>
     );
   }
@@ -275,26 +249,28 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentRole =
     <section id="report-form" aria-label="Report a Campus Issue" className="rounded-2xl bg-slate-800/40 border border-slate-700/50 overflow-hidden">
 
       {/* Header + presets */}
-      <div className="px-5 sm:px-6 pt-5 pb-5 border-b border-slate-700/50 bg-gradient-to-r from-indigo-600/8 to-violet-600/8">
-        <h2 className="text-lg font-bold text-slate-100">Report a Campus Issue</h2>
-        <p className="text-sm text-slate-400 mt-0.5">
-          Write in <span className="text-white">English or Bangla</span>
-        </p>
-        <div className="mt-4">
-          <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2.5">⚡ Quick Demo Presets:</p>
-          <div className="flex flex-wrap gap-2">
+      <div className="border-b border-slate-700/50 bg-gradient-to-r from-indigo-600/8 to-violet-600/8 p-6">
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-bold text-slate-100">{language === "bn" ? "সমস্যা জানান" : "Report an issue"}</h2>
+          <label title="Report anonymously" className="flex items-center gap-2 text-xs text-slate-400">
+            <input type="checkbox" checked={anonymous} onChange={(event) => setAnonymous(event.target.checked)}
+              className="accent-indigo-500" />
+            🕵️
+          </label>
+        </div>
+        <p className="mb-3 truncate text-xs text-slate-500">{currentUser.name} · {currentUser.id}</p>
+        <div className="flex flex-wrap gap-2">
             {PRESETS.map((p) => (
               <button key={p.label} onClick={() => applyPreset(p)}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-700/80 hover:bg-slate-600/80 border border-slate-600 hover:border-indigo-500/40 text-sm text-slate-200 font-medium transition-all duration-150 hover:-translate-y-0.5 active:translate-y-0">
+                className="flex items-center gap-1.5 rounded-xl border border-slate-600 bg-slate-700/80 px-3 py-2 text-xs font-medium text-slate-200 transition-colors hover:border-indigo-500/40 hover:bg-slate-600/80">
                 <span className="text-base leading-none">{p.emoji}</span>
                 <span>{p.label}</span>
               </button>
             ))}
-          </div>
         </div>
       </div>
 
-      <div className="p-5 sm:p-6">
+      <div className="space-y-5 p-6">
 
         {/* ── STEP 1 ── */}
         {step === 1 && (
@@ -308,8 +284,7 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentRole =
                 </label>
                 {/* Voice controls */}
                 <div className="flex items-center gap-2">
-                  {speechSupported && (
-                    <>
+                  <>
                       {/* Language toggle */}
                       <div className="flex rounded-lg overflow-hidden border border-slate-700 text-xs">
                         <button onClick={() => setVoiceLang("bn-BD")}
@@ -324,17 +299,17 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentRole =
                       {/* Mic button */}
                       <button
                         onClick={toggleListening}
-                        title={isListening ? "Stop recording" : `🎙️ Speak in ${voiceLang === "bn-BD" ? "বাংলা" : "English"}`}
+                        disabled={!speechSupported}
+                        title={!speechSupported ? "Voice input is not supported in this browser" : isListening ? "Stop recording" : `Speak in ${voiceLang === "bn-BD" ? "বাংলা" : "English"}`}
                         className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-200 ${
                           isListening
                             ? "bg-red-500/20 text-red-300 border-red-500/40 animate-pulse"
-                            : "bg-slate-700 text-slate-300 border-slate-600 hover:bg-indigo-500/10 hover:text-indigo-300 hover:border-indigo-500/30"
+                            : "bg-slate-700 text-slate-300 border-slate-600 hover:bg-indigo-500/10 hover:text-indigo-300 hover:border-indigo-500/30 disabled:cursor-not-allowed disabled:opacity-40"
                         }`}
                       >
                         {isListening ? <><MicOff className="w-3.5 h-3.5" /> Stop</> : <><Mic className="w-3.5 h-3.5" /> 🎙️ Speak</>}
                       </button>
                     </>
-                  )}
                 </div>
               </div>
 
@@ -347,8 +322,8 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentRole =
                     setDescription(e.target.value.replace(interimText, "").trim() || e.target.value);
                     setInterimText("");
                   }}
-                  placeholder="Describe the problem… Lab equipment broken? Long admin queue? Bus schedule issue?"
-                  rows={5} dir="auto"
+                  placeholder={language === "bn" ? "সমস্যাটি লিখুন…" : "Describe the problem…"}
+                  rows={4} dir="auto"
                   className={`w-full rounded-xl bg-slate-900/60 border text-slate-200 placeholder:text-slate-600 text-sm p-3.5 focus:outline-none focus:ring-1 resize-none transition-all leading-relaxed ${
                     isListening
                       ? "border-red-500/40 focus:border-red-500 focus:ring-red-500/20 ring-1 ring-red-500/20"
@@ -362,54 +337,20 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentRole =
                   </div>
                 )}
               </div>
-              <div className="flex justify-between mt-1">
-                <p className="text-xs text-slate-600">Min 20 characters{speechSupported ? " — or use 🎙️ voice input" : ""}</p>
-                <p className={`text-xs tabular-nums ${description.length < 20 ? "text-slate-600" : "text-slate-500"}`}>{description.length} chars</p>
-              </div>
-
-              {/* 🤖 AI Auto-Detection Preview */}
-              {preview && (
-                <div className="mt-3 rounded-xl bg-indigo-500/6 border border-indigo-500/15 p-3">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Bot className="w-3.5 h-3.5 text-indigo-400" />
-                    <span className="text-xs font-bold text-indigo-400 uppercase tracking-wide">🤖 AI Auto-Detection Preview</span>
-                    <span className="text-xs text-slate-600 font-normal">— instant client-side estimate</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
-                    <div className="flex items-center gap-1.5">
-                      <Tag className="w-3 h-3 text-slate-500 shrink-0" />
-                      <span className="text-xs text-slate-500">Category:</span>
-                      <span className="text-xs font-semibold text-violet-400 ml-1">{preview.category}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Zap className="w-3 h-3 text-slate-500 shrink-0" />
-                      <span className="text-xs text-slate-500">Urgency:</span>
-                      <span className={`text-xs font-semibold ml-1 ${preview.urgency === "High" ? "text-red-400" : preview.urgency === "Medium" ? "text-amber-400" : "text-emerald-400"}`}>
-                        {preview.urgency}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5 col-span-2">
-                      <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
-                      <span className="text-xs text-slate-500">Location:</span>
-                      <span className="text-xs font-semibold text-slate-300 ml-1 truncate">{preview.location}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 col-span-2">
-                      <Building2 className="w-3 h-3 text-slate-500 shrink-0" />
-                      <span className="text-xs text-slate-500">Office:</span>
-                      <span className="text-xs font-semibold text-slate-300 ml-1">{preview.office}</span>
-                    </div>
-                    {duplicatePreview.length > 0 && (
-                      <div className="flex items-center gap-1.5 col-span-2">
-                        <span className="text-xs">🔁</span>
-                        <span className="text-xs text-amber-400 font-semibold">
-                          {duplicatePreview.length} possible duplicate{duplicatePreview.length > 1 ? "s" : ""} detected — AI will confirm after analysis
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <p className="text-xs text-slate-600 mt-2 italic">Full AI analysis runs when you click "Analyze Issue with AI" below.</p>
+              <div className="rounded-xl border border-slate-700/60 bg-slate-900/40 px-4 py-3">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <label htmlFor="affected-count" className="text-xs font-medium text-slate-300">
+                    {language === "bn" ? "প্রভাবিত শিক্ষার্থী" : "Students affected"}
+                  </label>
+                  <span className="text-sm font-semibold tabular-nums text-indigo-300">
+                    {affectedCount === 100 ? "100+" : affectedCount}
+                  </span>
                 </div>
-              )}
+                <input id="affected-count" type="range" min="1" max="100" value={affectedCount}
+                  onChange={(event) => setAffectedCount(Number(event.target.value))}
+                  aria-label="Students affected, 1 to 100 plus"
+                  className="h-2 w-full cursor-pointer accent-indigo-500" />
+              </div>
             </div>
 
             {/* Location + Category */}
@@ -487,17 +428,17 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentRole =
                 <span className="text-xs font-normal text-slate-500 ml-1">— all fields editable</span>
               </h3>
 
-              <div>
+              {language === "en" && <div>
                 <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide"><Globe className="w-3.5 h-3.5" /> English Summary</label>
                 <textarea value={editSummary} onChange={(e) => setEditSummary(e.target.value)} rows={3}
                   className="w-full rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-sm p-3 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 resize-none transition-all leading-relaxed" />
-              </div>
+              </div>}
 
-              <div>
+              {language === "bn" && <div>
                 <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide"><FileText className="w-3.5 h-3.5" /> বাংলা সারসংক্ষেপ</label>
                 <textarea value={editBn} onChange={(e) => setEditBn(e.target.value)} rows={3} dir="auto"
                   className="w-full rounded-lg bg-slate-800 border border-slate-700 text-slate-200 text-sm p-3 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 resize-none transition-all leading-relaxed" />
-              </div>
+              </div>}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>

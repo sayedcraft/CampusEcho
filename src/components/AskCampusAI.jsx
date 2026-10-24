@@ -15,7 +15,7 @@ const SAMPLE_QUESTIONS = [
   { emoji: "💧", text: "Library te drinking water kokhon pabo?" },
 ];
 
-export default function AskCampusAI({ issues = [] }) {
+export default function AskCampusAI({ issues = [], language = "en" }) {
   const [question, setQuestion] = useState("");
   const [loading,  setLoading]  = useState(false);
   const [result,   setResult]   = useState(null);
@@ -64,14 +64,11 @@ export default function AskCampusAI({ issues = [] }) {
           </div>
           <div>
             <h2 className="text-base font-bold text-white">
-              💬 Ask CampusEcho AI{" "}
+            💬 {language === "bn" ? "ক্যাম্পাসইকো AI-কে জিজ্ঞাসা করুন" : "Ask CampusEcho AI"}{" "}
               <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30 ml-1">
-                Live Campus Status Q&amp;A
+                {language === "bn" ? "সরাসরি ক্যাম্পাস আপডেট" : "Live Campus Q&A"}
               </span>
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Ask anything in <span className="text-violet-300">Bangla</span>, <span className="text-violet-300">Banglish</span>, or <span className="text-violet-300">English</span> — answers grounded in real campus reports only
-            </p>
           </div>
         </div>
       </div>
@@ -81,7 +78,7 @@ export default function AskCampusAI({ issues = [] }) {
 
         {/* Sample chips */}
         <div>
-          <p className="text-xs text-slate-600 font-semibold uppercase tracking-wider mb-2.5">Sample questions:</p>
+          <p className="text-xs text-slate-600 font-semibold uppercase tracking-wider mb-2.5">{language === "bn" ? "নমুনা প্রশ্ন" : "Try a question"}</p>
           <div className="flex flex-wrap gap-2">
             {SAMPLE_QUESTIONS.map((chip) => (
               <button key={chip.text} onClick={() => handleChip(chip)} disabled={loading}
@@ -99,14 +96,14 @@ export default function AskCampusAI({ issues = [] }) {
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && !loading && ask(question)}
-            placeholder="আপনার প্রশ্ন লিখুন… or type in English"
+            placeholder={language === "bn" ? "আপনার প্রশ্ন লিখুন…" : "Ask about a campus issue…"}
             dir="auto"
             className="flex-1 rounded-xl bg-slate-900/70 border border-slate-700 text-slate-200 placeholder:text-slate-600 text-sm px-4 py-2.5 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/25 transition-all"
           />
           <button onClick={() => ask(question)} disabled={loading || !question.trim()}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 disabled:cursor-not-allowed text-white font-semibold text-sm transition-all duration-200 shadow-lg shadow-violet-500/20 whitespace-nowrap">
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-            {loading ? "Thinking…" : "Ask"}
+            {loading ? (language === "bn" ? "ভাবছি…" : "Thinking…") : (language === "bn" ? "জিজ্ঞাসা" : "Ask")}
           </button>
         </div>
 
@@ -125,24 +122,23 @@ export default function AskCampusAI({ issues = [] }) {
             {/* AI badge */}
             <div className="flex items-center gap-2 px-4 py-2.5 bg-violet-500/10 border-b border-violet-500/15">
               <Sparkles className="w-3.5 h-3.5 text-violet-400" />
-              <span className="text-xs font-bold text-violet-400 uppercase tracking-wide">CampusEcho AI Answer</span>
+              <span className="text-xs font-bold text-violet-400 uppercase tracking-wide">
+                {language === "bn" ? "ক্যাম্পাসইকো AI-এর উত্তর" : "CampusEcho AI answer"}
+              </span>
             </div>
 
             <div className="p-4 space-y-3">
               {/* English answer */}
-              <p className="text-sm text-slate-200 leading-relaxed">{result.answer}</p>
-
-              {/* Bangla answer */}
-              {result.answerBn && (
-                <p dir="auto" className="text-sm text-slate-400 leading-relaxed pl-3 border-l-2 border-violet-500/35 italic">
-                  {result.answerBn}
-                </p>
-              )}
+              <p dir={language === "bn" ? "auto" : undefined} className="text-sm text-slate-200 leading-relaxed">
+                {language === "bn" ? result.answerBn || result.answer : result.answer}
+              </p>
 
               {/* Referenced issues */}
               {result.referencedIssues?.length > 0 && (
                 <div className="pt-2 border-t border-slate-700/50">
-                  <p className="text-xs text-slate-600 font-semibold mb-2 uppercase tracking-wide">📎 Referenced Issues</p>
+                  <p className="text-xs text-slate-600 font-semibold mb-2 uppercase tracking-wide">
+                    {language === "bn" ? "📎 সংশ্লিষ্ট সমস্যা" : "📎 Referenced issues"}
+                  </p>
                   <div className="flex flex-wrap gap-2">
                     {result.referencedIssues.map((ref) => {
                       const full = issueMap[ref.id];
@@ -152,7 +148,9 @@ export default function AskCampusAI({ issues = [] }) {
                           <span className="text-slate-500 font-mono">{ref.id}</span>
                           {full && <span className="text-slate-400 truncate max-w-[140px]">{full.title?.split(" ").slice(0, 4).join(" ")}…</span>}
                           <span className={`px-1.5 py-0.5 rounded text-xs font-semibold border ${STATUS_BADGE[ref.status ?? full?.status] ?? STATUS_BADGE.Open}`}>
-                            {ref.status ?? full?.status ?? "Open"}
+                            {language === "bn"
+                              ? ({ Open: "খোলা", "In Progress": "চলমান", Resolved: "সমাধান" }[ref.status ?? full?.status] ?? "খোলা")
+                              : ref.status ?? full?.status ?? "Open"}
                           </span>
                         </div>
                       );

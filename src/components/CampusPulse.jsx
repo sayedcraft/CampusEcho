@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { FileText, AlertCircle, CheckCircle2, TrendingUp } from "lucide-react";
 
-export default function CampusPulse({ issues = [] }) {
+export default function CampusPulse({ issues = [], language = "en" }) {
   const stats = useMemo(() => {
     const total = issues.length;
     const open = issues.filter((i) => i.status === "Open").length;
@@ -22,8 +22,8 @@ export default function CampusPulse({ issues = [] }) {
 
   const cards = [
     {
-      label: "Total Reports",
-      sublabel: "All submitted issues",
+      label: language === "bn" ? "মোট রিপোর্ট" : "Total reports",
+      sublabel: language === "bn" ? "সব সমস্যা" : "All issues",
       value: stats.total,
       Icon: FileText,
       gradient: "from-indigo-500/20 via-indigo-600/10 to-transparent",
@@ -33,8 +33,8 @@ export default function CampusPulse({ issues = [] }) {
       valueColor: "text-indigo-200",
     },
     {
-      label: "Open Issues",
-      sublabel: "Needs attention",
+      label: language === "bn" ? "খোলা সমস্যা" : "Open issues",
+      sublabel: language === "bn" ? "মনোযোগ প্রয়োজন" : "Needs attention",
       value: stats.open,
       Icon: AlertCircle,
       gradient: "from-red-500/20 via-red-600/10 to-transparent",
@@ -44,8 +44,8 @@ export default function CampusPulse({ issues = [] }) {
       valueColor: "text-red-200",
     },
     {
-      label: "Resolved",
-      sublabel: "Successfully fixed",
+      label: language === "bn" ? "সমাধান হয়েছে" : "Resolved",
+      sublabel: language === "bn" ? "সফলভাবে ঠিক করা" : "Fixed",
       value: stats.resolved,
       Icon: CheckCircle2,
       gradient: "from-emerald-500/20 via-emerald-600/10 to-transparent",
@@ -55,8 +55,8 @@ export default function CampusPulse({ issues = [] }) {
       valueColor: "text-emerald-200",
     },
     {
-      label: "Top Category",
-      sublabel: stats.topEntry ? `${stats.topEntry[1]} report${stats.topEntry[1] !== 1 ? "s" : ""}` : "No data yet",
+      label: language === "bn" ? "শীর্ষ বিভাগ" : "Top category",
+      sublabel: stats.topEntry ? `${stats.topEntry[1]} ${language === "bn" ? "টি রিপোর্ট" : stats.topEntry[1] !== 1 ? "reports" : "report"}` : language === "bn" ? "তথ্য নেই" : "No data",
       // Show first word only so it fits the card on mobile
       value: stats.topEntry
         ? stats.topEntry[0].length > 14
@@ -78,11 +78,11 @@ export default function CampusPulse({ issues = [] }) {
       <div className="flex items-center gap-2 mb-4">
         <div className="w-1 h-5 rounded-full bg-gradient-to-b from-indigo-500 to-violet-500" />
         <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-widest">
-          Campus Pulse
+          {language === "bn" ? "ক্যাম্পাস পালস" : "Campus pulse"}
         </h2>
         {issues.length > 0 && (
           <span className="ml-auto text-xs text-slate-600">
-            Live · {issues.length} issue{issues.length !== 1 ? "s" : ""}
+            {language === "bn" ? `সরাসরি · ${issues.length}টি সমস্যা` : `Live · ${issues.length} issue${issues.length !== 1 ? "s" : ""}`}
           </span>
         )}
       </div>
