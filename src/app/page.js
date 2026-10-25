@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import Navbar      from "@/components/Navbar";
+import Footer      from "@/components/Footer";
 import CampusPulse          from "@/components/CampusPulse";
 import AICampusIntelligence from "@/components/AICampusIntelligence";
 import AskCampusAI         from "@/components/AskCampusAI";
@@ -236,7 +237,7 @@ export default function HomePage() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
+    <div id="top" className="min-h-screen flex flex-col bg-slate-50 text-slate-900">
       <Navbar
         user={user}
         language={language}
@@ -391,20 +392,7 @@ export default function HomePage() {
         )}
       </main>
 
-      {/* ── Footer ── */}
-      <footer className="border-t border-slate-200 py-6 mt-8">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
-          <p>
-            <span className="text-slate-700 font-semibold">CampusEcho</span> — IIUC Kumira
-            Campus Edition · Built for the IIUC Hackathon 2026
-          </p>
-          <p>
-            Powered by{" "}
-            <span className="text-indigo-400">Ollama / qwen2.5:3b</span> +{" "}
-            <span className="text-blue-400">Gemma cloud fallback</span> · Open-weight AI
-          </p>
-        </div>
-      </footer>
+      <Footer language={language} />
       {showAuthModal && (
         <AuthModal
           onLogin={(account) => {

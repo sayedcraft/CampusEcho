@@ -22,7 +22,7 @@ export default function Navbar({
       {/* ── Main nav bar ── */}
       <header className="sticky top-0 z-50 border-b border-slate-200/60 bg-white/80 shadow-sm backdrop-blur-md">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 gap-3">
+          <div className="flex min-h-16 flex-wrap items-center justify-between gap-2 py-2">
             {/* Brand */}
             <Link href="/" className="flex items-center gap-3 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
@@ -40,7 +40,7 @@ export default function Navbar({
             </Link>
 
             {/* Right controls */}
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-3">
               <div
                 role="group"
                 aria-label="Language"
@@ -85,12 +85,15 @@ export default function Navbar({
               <button
                 onClick={onOpenAuth}
                 title="Switch account or log in with an IIUC account"
-                className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 sm:px-3"
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-700 transition-all hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-700 sm:px-3"
               >
                 {language === "bn"
                   ? "অ্যাকাউন্ট"
                   : user
-                    ? "Switch account"
+                    ? <>
+                        <span className="sm:hidden">Account</span>
+                        <span className="hidden sm:inline">Switch account</span>
+                      </>
                     : "Login"}
               </button>
 
@@ -110,10 +113,11 @@ export default function Navbar({
                   onClick={
                     currentRole === "student" ? handleReportClick : onOpenAuth
                   }
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-sm font-semibold shadow-lg shadow-indigo-500/25 transition-all duration-200 hover:shadow-indigo-500/40 hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap"
+                  className="flex shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 px-2.5 py-2 text-sm font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all duration-200 hover:from-indigo-500 hover:to-violet-500 hover:shadow-indigo-500/40 hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap sm:px-4"
                 >
                   <Plus className="w-4 h-4 shrink-0" />
-                  <span>
+                  <span className="sm:hidden">Report</span>
+                  <span className="hidden sm:inline">
                     {currentRole === "student"
                       ? "+ Report Issue"
                       : "Login to Report"}

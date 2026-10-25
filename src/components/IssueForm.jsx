@@ -401,7 +401,15 @@ export default function IssueForm({ existingIssues = [], onSubmit, currentUser, 
             {description.trim().length < 20 && (
               <p className="text-center text-xs text-slate-600 -mt-2">
                 {description.trim()
-                  ? `Add ${20 - description.trim().length} more characters to analyze this report.`
+                  ? (
+                    <>
+                      Add{" "}
+                      <span className="font-semibold text-red-600">
+                        {20 - description.trim().length}
+                      </span>{" "}
+                      more characters to analyze this report.
+                    </>
+                  )
                   : "Enter a description or click a Quick Demo Preset to get started."}
               </p>
             )}
